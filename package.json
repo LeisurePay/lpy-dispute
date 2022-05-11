@@ -1,0 +1,47 @@
+{
+  "name": "lpy-governance",
+  "version": "1.0.0",
+  "description": "Leisure Pay's Governance Contract",
+  "scripts": {
+    "lint": "solhint 'contracts/*.sol'",
+    "lint:fix": "solhint 'contracts/**/*.sol' --fix",
+    "format": "yarn prettier --write .",
+    "typechain": "yarn hardhat typechain",
+    "ci:clean": "rm -rf ./artifacts ./cache .;types"
+  },
+  "keywords": [
+    "Leisure Pay"
+  ],
+  "author": "Isaac Frank",
+  "license": "ISC",
+  "devDependencies": {
+    "@nomiclabs/hardhat-ethers": "npm:hardhat-deploy-ethers@0.3.0-beta.12",
+    "@nomiclabs/hardhat-etherscan": "^3.0.3",
+    "@nomiclabs/hardhat-waffle": "^2.0.3",
+    "@openzeppelin/contracts": "^4.4.2",
+    "chai": "^4.3.6",
+    "dotenv": "^10.0.0",
+    "eslint": "^7.32.0",
+    "eslint-config-prettier": "^8.5.0",
+    "eslint-config-standard": "^16.0.3",
+    "eslint-plugin-import": "^2.26.0",
+    "eslint-plugin-node": "^11.1.0",
+    "eslint-plugin-prettier": "^3.4.1",
+    "eslint-plugin-promise": "^5.2.0",
+    "ethereum-waffle": "^3.4.4",
+    "ethers": "^5.6.4",
+    "hardhat": "^2.9.3",
+    "prettier": "^2.6.2",
+    "prettier-plugin-solidity": "^1.0.0-beta.13",
+    "solhint": "^3.3.7",
+    "solidity-coverage": "^0.7.21",
+    "cross-env": "^7.0.2",
+    "fs": "^0.0.1-security",
+    "fs-extra": "^10.0.0",
+    "hardhat-deploy": "^0.10.4",
+    "solhint-plugin-prettier": "^0.0.5"
+  },
+  "engines": {
+    "node": ">=14.0.0"
+  }
+}
