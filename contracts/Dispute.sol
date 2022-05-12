@@ -33,6 +33,8 @@ contract DisputeContract is AccessControlEnumerable {
     Dispute[] private disputes;
     mapping(uint256 => mapping(address => bool)) public isArbiter;
     mapping(uint256 => mapping(address => UserVote)) public userVote;
+    mapping(address => uint256[]) public myCustomerDisputeIndexes;
+    mapping(address => uint256[]) public myMerchantDisputeIndexes;
     IERC20 private lpy;
     bool public isAuto;
 
@@ -75,6 +77,9 @@ contract DisputeContract is AccessControlEnumerable {
         }
         dispute.state = State.Open;
 
+        myCustomerDisputeIndexes[_customer].push(disputes.length);
+        myMerchantDisputeIndexes[_merchant].push(disputes.length);
+
         disputes.push(dispute);
 
         return true;
@@ -116,7 +121,7 @@ contract DisputeContract is AccessControlEnumerable {
         isAuto = !isAuto;
     }
 
-    function createDispute(
+    function createDisputeByServer(
         address _customer,
         address _merchant,
         uint256 txID,
@@ -125,13 +130,13 @@ contract DisputeContract is AccessControlEnumerable {
         return _createDispute(_customer, _merchant, txID, _arbiters);
     }
 
-    function createDispute(
-        address _merchant,
-        uint256 txID,
-        address[] memory _arbiters
-    ) external returns (bool) {
-        return _createDispute(msg.sender, _merchant, txID, _arbiters);
-    }
+    // function createDispute(
+    //     address _merchant,
+    //     uint256 txID,
+    //     address[] memory _arbiters
+    // ) external returns (bool) {
+    //     return _createDispute(msg.sender, _merchant, txID, _arbiters);
+    // }
 
     function castVote(uint256 index, bool _agree) external returns (bool) {
         Dispute storage dispute = disputes[index];
@@ -151,10 +156,10 @@ contract DisputeContract is AccessControlEnumerable {
 
         userVote[index][msg.sender] = vote;
 
-        if (dispute.voteCount == dispute.arbiters.length && isAuto) {
-            // @TODO Figure out how to pass in the funds on createDispute so as to use a fixed value here
-            _finalizeDispute(index, true, 0);
-        }
+        // if (dispute.voteCount == dispute.arbiters.length && isAuto) {
+        //     // @TODO Figure out how to pass in the funds on createDispute so as to use a fixed value here
+        //     _finalizeDispute(index, true, 0);
+        // }
 
         return true;
     }
@@ -214,21 +219,28 @@ contract DisputeContract is AccessControlEnumerable {
 
     // READ ONLY FUNCTIONS
 
-    function fetchVotes(uint256 index)
-        public
-        view
-        returns (UserVote[] memory _votes)
-    {
+    function fetchVotes(uint256 index) public view returns (UserVote[] memory) {
         Dispute memory dispute = disputes[index];
         uint256 count;
+        for (uint256 i = 0; i < dispute.arbiters.length; i++) {
+            if (userVote[index][dispute.arbiters[i]].voted) {
+                count++;
+            }
+        }
+
+        UserVote[] memory _votes = new UserVote[](count);
+
+        uint256 outterIndex;
         for (uint256 i = 0; i < dispute.arbiters.length; i++) {
             UserVote memory _userVote = userVote[index][dispute.arbiters[i]];
 
             if (_userVote.voted) {
-                _votes[count] = _userVote;
-                count++;
+                _votes[outterIndex] = _userVote;
+                outterIndex++;
             }
         }
+
+        return _votes;
     }
 
     function getDisputeByIndex(uint256 index)
@@ -242,67 +254,117 @@ contract DisputeContract is AccessControlEnumerable {
     function getCustomerOpenDisputes(address _user)
         public
         view
-        returns (Dispute[] memory _disputes)
+        returns (Dispute[] memory)
     {
-        uint256 index;
-        for (uint256 i = 0; i < disputes.length; i++) {
-            if (
-                disputes[i].customer == _user && disputes[i].state == State.Open
-            ) {
-                _disputes[index] = disputes[i];
-                index++;
+        uint256 count;
+        for (uint256 i = 0; i < myCustomerDisputeIndexes[_user].length; i++) {
+            uint256 index = myCustomerDisputeIndexes[_user][i];
+            Dispute memory dispute = getDisputeByIndex(index);
+            if (dispute.state == State.Open) {
+                count++;
             }
         }
+
+        Dispute[] memory _disputes = new Dispute[](count);
+
+        uint256 outterIndex;
+        for (uint256 i = 0; i < myCustomerDisputeIndexes[_user].length; i++) {
+            uint256 index = myCustomerDisputeIndexes[_user][i];
+            Dispute memory dispute = getDisputeByIndex(index);
+            if (dispute.state == State.Open) {
+                _disputes[outterIndex] = disputes[i];
+                outterIndex++;
+            }
+        }
+
+        return _disputes;
     }
 
     function getCustomerClosedDisputes(address _user)
         public
         view
-        returns (Dispute[] memory _disputes)
+        returns (Dispute[] memory)
     {
-        uint256 index;
-        for (uint256 i = 0; i < disputes.length; i++) {
-            if (
-                disputes[i].customer == _user &&
-                disputes[i].state == State.Closed
-            ) {
-                _disputes[index] = disputes[i];
-                index++;
+        uint256 count;
+        for (uint256 i = 0; i < myCustomerDisputeIndexes[_user].length; i++) {
+            uint256 index = myCustomerDisputeIndexes[_user][i];
+            Dispute memory dispute = getDisputeByIndex(index);
+            if (dispute.state == State.Closed) {
+                count++;
             }
         }
+
+        Dispute[] memory _disputes = new Dispute[](count);
+
+        uint256 outterIndex;
+        for (uint256 i = 0; i < myCustomerDisputeIndexes[_user].length; i++) {
+            uint256 index = myCustomerDisputeIndexes[_user][i];
+            Dispute memory dispute = getDisputeByIndex(index);
+            if (dispute.state == State.Closed) {
+                _disputes[outterIndex] = disputes[i];
+                outterIndex++;
+            }
+        }
+
+        return _disputes;
     }
 
     function getMerchantOpenDisputes(address _user)
         public
         view
-        returns (Dispute[] memory _disputes)
+        returns (Dispute[] memory)
     {
-        uint256 index;
-        for (uint256 i = 0; i < disputes.length; i++) {
-            if (
-                disputes[i].merchant == _user && disputes[i].state == State.Open
-            ) {
-                _disputes[index] = disputes[i];
-                index++;
+        uint256 count;
+        for (uint256 i = 0; i < myMerchantDisputeIndexes[_user].length; i++) {
+            uint256 index = myMerchantDisputeIndexes[_user][i];
+            Dispute memory dispute = getDisputeByIndex(index);
+            if (dispute.state == State.Open) {
+                count++;
             }
         }
+
+        Dispute[] memory _disputes = new Dispute[](count);
+
+        uint256 outterIndex;
+        for (uint256 i = 0; i < myMerchantDisputeIndexes[_user].length; i++) {
+            uint256 index = myMerchantDisputeIndexes[_user][i];
+            Dispute memory dispute = getDisputeByIndex(index);
+            if (dispute.state == State.Open) {
+                _disputes[outterIndex] = disputes[i];
+                outterIndex++;
+            }
+        }
+
+        return _disputes;
     }
 
     function getMerchantClosedDisputes(address _user)
         public
         view
-        returns (Dispute[] memory _disputes)
+        returns (Dispute[] memory)
     {
-        uint256 index;
-        for (uint256 i = 0; i < disputes.length; i++) {
-            if (
-                disputes[i].merchant == _user &&
-                disputes[i].state == State.Closed
-            ) {
-                _disputes[index] = disputes[i];
-                index++;
+        uint256 count;
+        for (uint256 i = 0; i < myMerchantDisputeIndexes[_user].length; i++) {
+            uint256 index = myMerchantDisputeIndexes[_user][i];
+            Dispute memory dispute = getDisputeByIndex(index);
+            if (dispute.state == State.Closed) {
+                count++;
             }
         }
+
+        Dispute[] memory _disputes = new Dispute[](count);
+
+        uint256 outterIndex;
+        for (uint256 i = 0; i < myMerchantDisputeIndexes[_user].length; i++) {
+            uint256 index = myMerchantDisputeIndexes[_user][i];
+            Dispute memory dispute = getDisputeByIndex(index);
+            if (dispute.state == State.Closed) {
+                _disputes[outterIndex] = disputes[i];
+                outterIndex++;
+            }
+        }
+
+        return _disputes;
     }
 
     function getAllDisputes()
