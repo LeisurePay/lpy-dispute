@@ -7,25 +7,25 @@ const deployDispute = async (hre) => {
   const { deploy, log } = deployments;
   const { deployer } = await getNamedAccounts();
 
-  const args = ["0x0000000000000000000000000000000000000000"];
+  const args = [];
 
   log("----------------------------------------------------");
-  log("Deploying Dispute and waiting for confirmations...");
-  const dispute = await deploy("Dispute", {
+  log("Deploying MockToken and waiting for confirmations...");
+  const mockerc20 = await deploy("MockERC20", {
     from: deployer,
     log: true,
     args,
     // we need to wait if on a live network so we can verify properly
     waitConfirmations: networkConfig[network.name].blockConfirmations || 1,
   });
-  log(`Dispute at ${dispute.address}`);
+  log(`MockToken at ${mockerc20.address}`);
   if (
     !developmentChains.includes(network.name) &&
     process.env.ETHERSCAN_API_KEY
   ) {
-    await verify(dispute.address, args);
+    await verify(mockerc20.address, args);
   }
 };
 
-deployDispute.tags = ["all", "dispute"];
+deployDispute.tags = ["all", "mockerc20"];
 module.exports = deployDispute;
