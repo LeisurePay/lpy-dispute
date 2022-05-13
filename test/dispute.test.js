@@ -1,7 +1,7 @@
-const { deployments, ethers } = require("hardhat");
+const { ethers } = require("hardhat");
 const { expect } = require("chai");
 
-describe("Dispute Flow", (hre) => {
+describe("Dispute Flow", () => {
   let dispute;
   let mock;
   let first = true;
@@ -101,6 +101,10 @@ describe("Dispute Flow", (hre) => {
 
     const deets = await dispute.getDisputeByIndex(index);
     expect(deets.state).to.eq(1);
+
+    await expect(
+      dispute.connect(customer).castVote(index, true)
+    ).to.be.revertedWith(`dispute is closed`);
   });
 
   it("all readOnly functions work", async () => {
