@@ -38,6 +38,9 @@ contract DisputeContract is AccessControlEnumerable {
     IERC20 private lpy;
     bool public isAuto;
 
+    bytes32 public constant VOTE_A = keccak256(bytes("A"));
+    bytes32 public constant VOTE_B = keccak256(bytes("B"));
+
     // ROLES
     bytes32 public constant SERVER_ROLE = bytes32("SERVER_ROLE");
 
@@ -110,9 +113,14 @@ contract DisputeContract is AccessControlEnumerable {
     function _getSignerAddress(string memory _msg, bytes memory _sig)
         internal
         pure
-        returns (address)
+        returns (address, bool)
     {
-        return keccak256(bytes(_msg)).recover(_sig);
+        bytes32 hashMsg = keccak256(bytes(_msg));
+
+        if (hashMsg == VOTE_A || hashMsg == VOTE_B) {
+            return (hashMsg.recover(_sig), hashMsg == VOTE_A);
+        }
+        return (address(0), true);
     }
 
     // PUBLIC AND EXTERNAL FUNCTIONS
@@ -167,28 +175,34 @@ contract DisputeContract is AccessControlEnumerable {
     function castVotesWithSignatures(
         uint256 index,
         bytes[] memory _sigs,
-        string[] memory _msgs,
-        bool[] memory _agree
+        string[] memory _msgs
     ) external onlyRole(SERVER_ROLE) returns (bool) {
         Dispute storage dispute = disputes[index];
-        require(_sigs.length == _agree.length, "sigs and agree != same length");
+        require(_sigs.length == _msgs.length, "sigs and msg != same length");
         require(dispute.state == State.Open, "dispute is closed");
 
         for (uint256 i = 0; i < _sigs.length; i++) {
-            address signer = _getSignerAddress(_msgs[i], _sigs[i]);
+            (address signer, bool agree) = _getSignerAddress(
+                _msgs[i],
+                _sigs[i]
+            );
 
-            if (!isArbiter[index][signer]) {}
-            if (userVote[index][signer].voted) {}
+            if (!isArbiter[index][signer]) {
+                continue;
+            }
+            if (userVote[index][signer].voted) {
+                continue;
+            }
 
             UserVote memory vote = userVote[index][signer];
 
-            vote.voter = msg.sender;
-            vote.agree = _agree[i];
+            vote.voter = signer;
+            vote.agree = agree;
             vote.voted = true;
 
             dispute.voteCount += 1;
-            dispute.support += _agree[i] ? 1 : 0;
-            dispute.against += _agree[i] ? 0 : 1;
+            dispute.support += agree ? 1 : 0;
+            dispute.against += agree ? 0 : 1;
             userVote[index][msg.sender] = vote;
         }
 
