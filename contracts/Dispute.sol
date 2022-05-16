@@ -6,7 +6,10 @@ import "@openzeppelin/contracts/access/AccessControlEnumerable.sol";
 import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
-// Create a Dispute smart contract
+/// @title LPY Dispute Contract
+/// @author Leisure Pay
+/// @notice Dispute Contract for the Leisure Pay Ecosystem
+/// @dev Dispute Contract for the Leisure Pay Ecosystem
 contract DisputeContract is AccessControlEnumerable {
     using ECDSA for bytes32;
 
@@ -57,6 +60,27 @@ contract DisputeContract is AccessControlEnumerable {
         isAuto = _isAuto;
     }
 
+    // EVENTS
+    event DisputeCreated(
+        uint256 indexed disputeIndex,
+        uint256 nftId,
+        address indexed customer,
+        address indexed merchant,
+        address[] arbiters
+    );
+
+    event DisputeVoted(
+        uint256 indexed disputeIndex,
+        address indexed voter,
+        bool agree
+    );
+
+    event DisputeClosed(
+        uint256 indexed disputeIndex,
+        bool arbitersVote,
+        bool finalVote
+    );
+
     // INTERNAL FUNCTIONS
     function _createDispute(
         address _customer,
@@ -83,9 +107,31 @@ contract DisputeContract is AccessControlEnumerable {
         myCustomerDisputeIndexes[_customer].push(disputes.length);
         myMerchantDisputeIndexes[_merchant].push(disputes.length);
 
+        emit DisputeCreated(
+            disputes.length,
+            txID,
+            _customer,
+            _merchant,
+            _arbiters
+        );
         disputes.push(dispute);
 
         return true;
+    }
+
+    // vote on a dispute
+    function _castVote(
+        uint256 index,
+        address signer,
+        bool agree
+    ) internal returns (UserVote memory) {
+        UserVote memory vote = userVote[index][signer];
+
+        vote.voter = signer;
+        vote.agree = agree;
+        vote.voted = true;
+        emit DisputeVoted(index, signer, agree);
+        return vote;
     }
 
     function _finalizeDispute(
@@ -148,15 +194,12 @@ contract DisputeContract is AccessControlEnumerable {
 
     function castVote(uint256 index, bool _agree) external returns (bool) {
         Dispute storage dispute = disputes[index];
-        UserVote memory vote = userVote[index][msg.sender];
 
         require(dispute.state == State.Open, "dispute is closed");
         require(isArbiter[index][msg.sender], "not allowed to vote");
         require(!userVote[index][msg.sender].voted, "already voted");
 
-        vote.voter = msg.sender;
-        vote.agree = _agree;
-        vote.voted = true;
+        UserVote memory vote = _castVote(index, msg.sender, _agree);
 
         dispute.voteCount += 1;
         dispute.support += _agree ? 1 : 0;
@@ -194,11 +237,7 @@ contract DisputeContract is AccessControlEnumerable {
                 continue;
             }
 
-            UserVote memory vote = userVote[index][signer];
-
-            vote.voter = signer;
-            vote.agree = agree;
-            vote.voted = true;
+            UserVote memory vote = _castVote(index, signer, agree);
 
             dispute.voteCount += 1;
             dispute.support += agree ? 1 : 0;
