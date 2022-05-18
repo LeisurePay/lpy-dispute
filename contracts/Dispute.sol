@@ -24,6 +24,7 @@ contract DisputeContract is AccessControlEnumerable {
     }
     struct Dispute {
         uint256 nftId;
+        uint256 amount;
         address customer;
         address merchant;
         uint256 voteCount;
@@ -64,6 +65,7 @@ contract DisputeContract is AccessControlEnumerable {
     event DisputeCreated(
         uint256 indexed disputeIndex,
         uint256 nftId,
+        uint256 amount,
         address indexed customer,
         address indexed merchant,
         address[] arbiters
@@ -78,7 +80,8 @@ contract DisputeContract is AccessControlEnumerable {
     event DisputeClosed(
         uint256 indexed disputeIndex,
         bool arbitersVote,
-        bool finalVote
+        bool finalVote,
+        uint256 amount
     );
 
     // INTERNAL FUNCTIONS
@@ -86,6 +89,7 @@ contract DisputeContract is AccessControlEnumerable {
         address _customer,
         address _merchant,
         uint256 txID,
+        uint256 amount,
         address[] memory _arbiters
     ) internal returns (bool) {
         require(_customer != _merchant, "custmer == merchant");
@@ -103,6 +107,7 @@ contract DisputeContract is AccessControlEnumerable {
             isArbiter[disputes.length][_arbiters[i]] = true;
         }
         dispute.state = State.Open;
+        dispute.amount = amount;
 
         myCustomerDisputeIndexes[_customer].push(disputes.length);
         myMerchantDisputeIndexes[_merchant].push(disputes.length);
@@ -110,6 +115,7 @@ contract DisputeContract is AccessControlEnumerable {
         emit DisputeCreated(
             disputes.length,
             txID,
+            amount,
             _customer,
             _merchant,
             _arbiters
@@ -153,6 +159,8 @@ contract DisputeContract is AccessControlEnumerable {
 
         dispute.state = State.Closed;
 
+        emit DisputeClosed(index, customerWins, inFavor, tokenAmount);
+
         return true;
     }
 
@@ -179,9 +187,10 @@ contract DisputeContract is AccessControlEnumerable {
         address _customer,
         address _merchant,
         uint256 txID,
+        uint256 amount,
         address[] memory _arbiters
     ) external onlyRole(SERVER_ROLE) returns (bool) {
-        return _createDispute(_customer, _merchant, txID, _arbiters);
+        return _createDispute(_customer, _merchant, txID, amount, _arbiters);
     }
 
     // function createDispute(
@@ -251,23 +260,50 @@ contract DisputeContract is AccessControlEnumerable {
     function finalizeDispute(
         uint256 index,
         bool inFavor,
-        uint256 tokenAmount
+        uint256 rate
     ) external onlyRole(SERVER_ROLE) returns (bool) {
-        Dispute storage dispute = disputes[index];
-        require(dispute.state == State.Open, "dispute is closed");
+        uint256 tokenAmount = disputes[index].amount / rate;
 
-        bool customerWins = dispute.support > dispute.against;
+        return _finalizeDispute(index, inFavor, tokenAmount);
+    }
 
-        if ((!customerWins && inFavor) || (customerWins && !inFavor)) {
-            require(
-                lpy.transfer(dispute.merchant, tokenAmount),
-                "transfer failed"
-            );
+    function addArbiter(uint256 index, address _arbiter)
+        external
+        onlyRole(SERVER_ROLE)
+    {
+        Dispute storage _dispute = disputes[index];
+        require(!isArbiter[index][_arbiter], "already an arbiter");
+        require(_dispute.state == State.Open, "dispute is closed");
+
+        userVote[index][_arbiter] = UserVote(_arbiter, false, false);
+        _dispute.arbiters.push(_arbiter);
+        isArbiter[index][_arbiter] = true;
+    }
+
+    function removeArbiter(uint256 index, address _arbiter)
+        external
+        onlyRole(SERVER_ROLE)
+    {
+        Dispute storage _dispute = disputes[index];
+        require(isArbiter[index][_arbiter], "not an arbiter");
+        require(_dispute.state == State.Open, "dispute is closed");
+
+        uint256 length = _dispute.arbiters.length;
+        for (uint256 i = 0; i < length; i++) {
+            if (_dispute.arbiters[i] == _arbiter) {
+                _dispute.arbiters[i] = _dispute.arbiters[length - 1];
+                _dispute.arbiters.pop();
+
+                if (userVote[index][_arbiter].voted) {
+                    _dispute.support -= userVote[index][_arbiter].agree ? 1 : 0;
+                    _dispute.against -= userVote[index][_arbiter].agree ? 0 : 1;
+                    _dispute.voteCount -= 1;
+                }
+                userVote[index][_arbiter] = UserVote(address(0), false, false);
+                break;
+            }
         }
-
-        dispute.state = State.Closed;
-
-        return true;
+        isArbiter[index][_arbiter] = false;
     }
 
     // READ ONLY FUNCTIONS
