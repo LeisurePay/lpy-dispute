@@ -44,7 +44,7 @@ describe("Dispute Flow", () => {
 
     await dispute
       .connect(server)
-      .createDisputeByServer(customer.address, merchant.address, 1, [
+      .createDisputeByServer(customer.address, merchant.address, 1, wei("2"), [
         arbiter1.address,
         arbiter2.address,
         arbiter3.address,
@@ -89,15 +89,24 @@ describe("Dispute Flow", () => {
     await mock.connect(deployer).transfer(dispute.address, wei("1"));
 
     const merchantOldBalance = await mock.balanceOf(merchant.address);
-
-    await expect(
-      dispute.connect(server).finalizeDispute(index, false, wei("1"))
-    )
+    const d = await dispute.getDisputeByIndex(index);
+    const rate = wei("0.000001");
+    const dollarValue = d.amount;
+    const received = dollarValue.div(rate);
+    // console.log(
+    //   "Rate:",
+    //   +rate,
+    //   "Dollar: $",
+    //   +dollarValue,
+    //   "Received: ",
+    //   +received
+    // );
+    await expect(dispute.connect(server).finalizeDispute(index, false, rate))
       .to.emit(mock, "Transfer")
-      .withArgs(dispute.address, merchant.address, wei("1"));
+      .withArgs(dispute.address, merchant.address, received);
 
     const merchantNewBalance = await mock.balanceOf(merchant.address);
-    expect(merchantNewBalance).to.eq(merchantOldBalance + wei("1"));
+    expect(merchantNewBalance).to.eq(merchantOldBalance + received);
 
     const deets = await dispute.getDisputeByIndex(index);
     expect(deets.state).to.eq(1);
@@ -111,11 +120,13 @@ describe("Dispute Flow", () => {
     for (let i = 0; i < 3; i++) {
       await dispute
         .connect(server)
-        .createDisputeByServer(customer.address, merchant.address, 1, [
-          arbiter1.address,
-          arbiter2.address,
-          arbiter3.address,
-        ]);
+        .createDisputeByServer(
+          customer.address,
+          merchant.address,
+          1,
+          wei("2"),
+          [arbiter1.address, arbiter2.address, arbiter3.address]
+        );
     }
     const custOpen = await dispute.getCustomerOpenDisputes(customer.address);
     const custClosed = await dispute.getCustomerClosedDisputes(
