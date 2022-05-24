@@ -17,28 +17,41 @@ contract DisputeContract is AccessControlEnumerable {
         Open,
         Closed
     }
+
+    enum PARTIES {
+        NULL,
+        A,
+        B
+    }
+
     struct UserVote {
         address voter;
         bool agree;
         bool voted;
     }
+
     struct Dispute {
         uint256 nftId;
-        uint256 amount;
-        address customer;
-        address merchant;
+        uint256 usdValue;
+        uint256 tokenValue;
+        address sideA;
+        address sideB;
         uint256 voteCount;
         uint256 support;
         uint256 against;
         address[] arbiters;
+        bool claimed;
+        PARTIES winner;
         State state;
     }
 
     Dispute[] private disputes;
+
     mapping(uint256 => mapping(address => bool)) public isArbiter;
     mapping(uint256 => mapping(address => UserVote)) public userVote;
-    mapping(address => uint256[]) public myCustomerDisputeIndexes;
-    mapping(address => uint256[]) public myMerchantDisputeIndexes;
+    mapping(address => uint256[]) public disputeIndexesAsSideA;
+    mapping(address => uint256[]) public disputeIndexesAsSideB;
+
     IERC20 private lpy;
     bool public isAuto;
 
@@ -65,9 +78,9 @@ contract DisputeContract is AccessControlEnumerable {
     event DisputeCreated(
         uint256 indexed disputeIndex,
         uint256 nftId,
-        uint256 amount,
-        address indexed customer,
-        address indexed merchant,
+        uint256 usdValue,
+        address indexed sideA,
+        address indexed sideB,
         address[] arbiters
     );
 
@@ -81,43 +94,49 @@ contract DisputeContract is AccessControlEnumerable {
         uint256 indexed disputeIndex,
         bool arbitersVote,
         bool finalVote,
-        uint256 amount
+        uint256 usdValue,
+        uint256 tokenValue,
+        uint256 rate,
+        PARTIES winner
+    );
+
+    event DisputeFundClaimed(
+        uint256 indexed disputeIndex,
+        uint256 tokenValue,
+        address claimer
     );
 
     // INTERNAL FUNCTIONS
     function _createDispute(
-        address _customer,
-        address _merchant,
+        address _sideA,
+        address _sideB,
         uint256 txID,
-        uint256 amount,
+        uint256 usdValue,
         address[] memory _arbiters
     ) internal returns (bool) {
-        require(_customer != _merchant, "custmer == merchant");
+        require(_sideA != _sideB, "sideA == sideB");
 
         Dispute memory dispute;
 
         dispute.nftId = txID;
-        dispute.customer = _customer;
-        dispute.merchant = _merchant;
-        dispute.voteCount = 0;
-        dispute.support = 0;
-        dispute.against = 0;
+        dispute.sideA = _sideA;
+        dispute.sideB = _sideB;
         dispute.arbiters = _arbiters;
         for (uint256 i = 0; i < _arbiters.length; i++) {
             isArbiter[disputes.length][_arbiters[i]] = true;
         }
         dispute.state = State.Open;
-        dispute.amount = amount;
+        dispute.usdValue = usdValue;
 
-        myCustomerDisputeIndexes[_customer].push(disputes.length);
-        myMerchantDisputeIndexes[_merchant].push(disputes.length);
+        disputeIndexesAsSideA[_sideA].push(disputes.length);
+        disputeIndexesAsSideB[_sideB].push(disputes.length);
 
         emit DisputeCreated(
             disputes.length,
             txID,
-            amount,
-            _customer,
-            _merchant,
+            usdValue,
+            _sideA,
+            _sideB,
             _arbiters
         );
         disputes.push(dispute);
@@ -136,30 +155,38 @@ contract DisputeContract is AccessControlEnumerable {
         vote.voter = signer;
         vote.agree = agree;
         vote.voted = true;
+
         emit DisputeVoted(index, signer, agree);
+
         return vote;
     }
 
     function _finalizeDispute(
         uint256 index,
         bool inFavor,
-        uint256 tokenAmount
+        uint256 ratioValue
     ) internal returns (bool) {
         Dispute storage dispute = disputes[index];
+
         require(dispute.state == State.Open, "dispute is closed");
 
-        bool customerWins = dispute.support > dispute.against;
+        dispute.tokenValue = dispute.usdValue * ratioValue;
 
-        if ((!customerWins && inFavor) || (customerWins && !inFavor)) {
-            require(
-                lpy.transfer(dispute.merchant, tokenAmount),
-                "transfer failed"
-            );
-        }
+        bool sideAWins = dispute.support > dispute.against;
+
+        dispute.winner = sideAWins ? PARTIES.A : PARTIES.B;
 
         dispute.state = State.Closed;
 
-        emit DisputeClosed(index, customerWins, inFavor, tokenAmount);
+        emit DisputeClosed(
+            index,
+            sideAWins,
+            inFavor,
+            dispute.usdValue,
+            dispute.tokenValue,
+            ratioValue,
+            dispute.winner
+        );
 
         return true;
     }
@@ -184,22 +211,14 @@ contract DisputeContract is AccessControlEnumerable {
     }
 
     function createDisputeByServer(
-        address _customer,
-        address _merchant,
+        address _sideA,
+        address _sideB,
         uint256 txID,
-        uint256 amount,
+        uint256 usdValue,
         address[] memory _arbiters
     ) external onlyRole(SERVER_ROLE) returns (bool) {
-        return _createDispute(_customer, _merchant, txID, amount, _arbiters);
+        return _createDispute(_sideA, _sideB, txID, usdValue, _arbiters);
     }
-
-    // function createDispute(
-    //     address _merchant,
-    //     uint256 txID,
-    //     address[] memory _arbiters
-    // ) external returns (bool) {
-    //     return _createDispute(msg.sender, _merchant, txID, _arbiters);
-    // }
 
     function castVote(uint256 index, bool _agree) external returns (bool) {
         Dispute storage dispute = disputes[index];
@@ -216,11 +235,6 @@ contract DisputeContract is AccessControlEnumerable {
 
         userVote[index][msg.sender] = vote;
 
-        // if (dispute.voteCount == dispute.arbiters.length && isAuto) {
-        //     // @TODO Figure out how to pass in the funds on createDispute so as to use a fixed value here
-        //     _finalizeDispute(index, true, 0);
-        // }
-
         return true;
     }
 
@@ -230,6 +244,7 @@ contract DisputeContract is AccessControlEnumerable {
         string[] memory _msgs
     ) external onlyRole(SERVER_ROLE) returns (bool) {
         Dispute storage dispute = disputes[index];
+
         require(_sigs.length == _msgs.length, "sigs and msg != same length");
         require(dispute.state == State.Open, "dispute is closed");
 
@@ -260,11 +275,9 @@ contract DisputeContract is AccessControlEnumerable {
     function finalizeDispute(
         uint256 index,
         bool inFavor,
-        uint256 rate
+        uint256 ratio // tokens per dollar
     ) external onlyRole(SERVER_ROLE) returns (bool) {
-        uint256 tokenAmount = disputes[index].amount / rate;
-
-        return _finalizeDispute(index, inFavor, tokenAmount);
+        return _finalizeDispute(index, inFavor, ratio);
     }
 
     function addArbiter(uint256 index, address _arbiter)
@@ -304,6 +317,31 @@ contract DisputeContract is AccessControlEnumerable {
             }
         }
         isArbiter[index][_arbiter] = false;
+    }
+
+    function claim(uint256 index) external returns (Dispute memory) {
+        Dispute storage _dispute = disputes[index];
+        require(_dispute.state == State.Closed, "dispute is not closed");
+        require(_dispute.claimed != true, "Already Claimed");
+
+        address _receiver = _dispute.winner == PARTIES.A
+            ? _dispute.sideA
+            : _dispute.sideB;
+
+        if (_dispute.winner == PARTIES.A) {
+            require(hasRole(SERVER_ROLE, msg.sender), "Only server can claim");
+        } else {
+            require(msg.sender == _dispute.sideB, "Only sideB can claim");
+        }
+
+        _dispute.claimed = true;
+
+        require(
+            lpy.transfer(msg.sender, _dispute.tokenValue),
+            "CLAIM:: transfer failed"
+        );
+
+        return _dispute;
     }
 
     // READ ONLY FUNCTIONS
@@ -346,8 +384,8 @@ contract DisputeContract is AccessControlEnumerable {
         returns (Dispute[] memory)
     {
         uint256 count;
-        for (uint256 i = 0; i < myCustomerDisputeIndexes[_user].length; i++) {
-            uint256 index = myCustomerDisputeIndexes[_user][i];
+        for (uint256 i = 0; i < disputeIndexesAsSideA[_user].length; i++) {
+            uint256 index = disputeIndexesAsSideA[_user][i];
             Dispute memory dispute = getDisputeByIndex(index);
             if (dispute.state == State.Open) {
                 count++;
@@ -357,8 +395,8 @@ contract DisputeContract is AccessControlEnumerable {
         Dispute[] memory _disputes = new Dispute[](count);
 
         uint256 outterIndex;
-        for (uint256 i = 0; i < myCustomerDisputeIndexes[_user].length; i++) {
-            uint256 index = myCustomerDisputeIndexes[_user][i];
+        for (uint256 i = 0; i < disputeIndexesAsSideA[_user].length; i++) {
+            uint256 index = disputeIndexesAsSideA[_user][i];
             Dispute memory dispute = getDisputeByIndex(index);
             if (dispute.state == State.Open) {
                 _disputes[outterIndex] = disputes[i];
@@ -375,8 +413,8 @@ contract DisputeContract is AccessControlEnumerable {
         returns (Dispute[] memory)
     {
         uint256 count;
-        for (uint256 i = 0; i < myCustomerDisputeIndexes[_user].length; i++) {
-            uint256 index = myCustomerDisputeIndexes[_user][i];
+        for (uint256 i = 0; i < disputeIndexesAsSideA[_user].length; i++) {
+            uint256 index = disputeIndexesAsSideA[_user][i];
             Dispute memory dispute = getDisputeByIndex(index);
             if (dispute.state == State.Closed) {
                 count++;
@@ -386,8 +424,8 @@ contract DisputeContract is AccessControlEnumerable {
         Dispute[] memory _disputes = new Dispute[](count);
 
         uint256 outterIndex;
-        for (uint256 i = 0; i < myCustomerDisputeIndexes[_user].length; i++) {
-            uint256 index = myCustomerDisputeIndexes[_user][i];
+        for (uint256 i = 0; i < disputeIndexesAsSideA[_user].length; i++) {
+            uint256 index = disputeIndexesAsSideA[_user][i];
             Dispute memory dispute = getDisputeByIndex(index);
             if (dispute.state == State.Closed) {
                 _disputes[outterIndex] = disputes[i];
@@ -404,8 +442,8 @@ contract DisputeContract is AccessControlEnumerable {
         returns (Dispute[] memory)
     {
         uint256 count;
-        for (uint256 i = 0; i < myMerchantDisputeIndexes[_user].length; i++) {
-            uint256 index = myMerchantDisputeIndexes[_user][i];
+        for (uint256 i = 0; i < disputeIndexesAsSideB[_user].length; i++) {
+            uint256 index = disputeIndexesAsSideB[_user][i];
             Dispute memory dispute = getDisputeByIndex(index);
             if (dispute.state == State.Open) {
                 count++;
@@ -415,8 +453,8 @@ contract DisputeContract is AccessControlEnumerable {
         Dispute[] memory _disputes = new Dispute[](count);
 
         uint256 outterIndex;
-        for (uint256 i = 0; i < myMerchantDisputeIndexes[_user].length; i++) {
-            uint256 index = myMerchantDisputeIndexes[_user][i];
+        for (uint256 i = 0; i < disputeIndexesAsSideB[_user].length; i++) {
+            uint256 index = disputeIndexesAsSideB[_user][i];
             Dispute memory dispute = getDisputeByIndex(index);
             if (dispute.state == State.Open) {
                 _disputes[outterIndex] = disputes[i];
@@ -433,8 +471,8 @@ contract DisputeContract is AccessControlEnumerable {
         returns (Dispute[] memory)
     {
         uint256 count;
-        for (uint256 i = 0; i < myMerchantDisputeIndexes[_user].length; i++) {
-            uint256 index = myMerchantDisputeIndexes[_user][i];
+        for (uint256 i = 0; i < disputeIndexesAsSideB[_user].length; i++) {
+            uint256 index = disputeIndexesAsSideB[_user][i];
             Dispute memory dispute = getDisputeByIndex(index);
             if (dispute.state == State.Closed) {
                 count++;
@@ -444,8 +482,8 @@ contract DisputeContract is AccessControlEnumerable {
         Dispute[] memory _disputes = new Dispute[](count);
 
         uint256 outterIndex;
-        for (uint256 i = 0; i < myMerchantDisputeIndexes[_user].length; i++) {
-            uint256 index = myMerchantDisputeIndexes[_user][i];
+        for (uint256 i = 0; i < disputeIndexesAsSideB[_user].length; i++) {
+            uint256 index = disputeIndexesAsSideB[_user][i];
             Dispute memory dispute = getDisputeByIndex(index);
             if (dispute.state == State.Closed) {
                 _disputes[outterIndex] = disputes[i];
