@@ -324,10 +324,6 @@ contract DisputeContract is AccessControlEnumerable {
         require(_dispute.state == State.Closed, "dispute is not closed");
         require(_dispute.claimed != true, "Already Claimed");
 
-        address _receiver = _dispute.winner == PARTIES.A
-            ? _dispute.sideA
-            : _dispute.sideB;
-
         if (_dispute.winner == PARTIES.A) {
             require(hasRole(SERVER_ROLE, msg.sender), "Only server can claim");
         } else {
