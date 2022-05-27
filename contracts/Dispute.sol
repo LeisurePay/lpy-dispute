@@ -325,9 +325,17 @@ contract DisputeContract is AccessControlEnumerable {
         require(_dispute.claimed != true, "Already Claimed");
 
         if (_dispute.winner == PARTIES.A) {
-            require(hasRole(SERVER_ROLE, msg.sender), "Only server can claim");
+            require(
+                hasRole(SERVER_ROLE, msg.sender) ||
+                    msg.sender == _dispute.sideA,
+                "Only SideA or Server can claim"
+            );
         } else {
-            require(msg.sender == _dispute.sideB, "Only sideB can claim");
+            require(
+                hasRole(SERVER_ROLE, msg.sender) ||
+                    msg.sender == _dispute.sideB,
+                "Only sideB or Server can claim"
+            );
         }
 
         _dispute.claimed = true;
