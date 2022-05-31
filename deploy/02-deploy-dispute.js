@@ -17,14 +17,20 @@ const deployDispute = async (hre) => {
     log: true,
     args,
     // we need to wait if on a live network so we can verify properly
-    waitConfirmations: networkConfig[network.name].blockConfirmations || 1,
+    waitConfirmations: networkConfig[network.name]
+      ? networkConfig[network.name].blockConfirmations
+      : 1,
   });
   log(`DisputeContract at ${dispute.address}`);
   if (
     !developmentChains.includes(network.name) &&
     process.env.ETHERSCAN_API_KEY
   ) {
-    await verify(dispute.address, args);
+    await verify(
+      dispute.address,
+      args,
+      "contracts/Dispute.sol:DisputeContract"
+    );
   }
 };
 

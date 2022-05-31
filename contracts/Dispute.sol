@@ -150,11 +150,7 @@ contract DisputeContract is AccessControlEnumerable {
         address signer,
         bool agree
     ) internal returns (UserVote memory) {
-        UserVote memory vote = userVote[index][signer];
-
-        vote.voter = signer;
-        vote.agree = agree;
-        vote.voted = true;
+        UserVote memory vote = UserVote(signer, agree, true);
 
         emit DisputeVoted(index, signer, agree);
 
@@ -199,7 +195,10 @@ contract DisputeContract is AccessControlEnumerable {
         bytes32 hashMsg = keccak256(bytes(_msg));
 
         if (hashMsg == VOTE_A || hashMsg == VOTE_B) {
-            return (hashMsg.recover(_sig), hashMsg == VOTE_A);
+            return (
+                hashMsg.toEthSignedMessageHash().recover(_sig),
+                hashMsg == VOTE_A
+            );
         }
         return (address(0), true);
     }
@@ -266,7 +265,7 @@ contract DisputeContract is AccessControlEnumerable {
             dispute.voteCount += 1;
             dispute.support += agree ? 1 : 0;
             dispute.against += agree ? 0 : 1;
-            userVote[index][msg.sender] = vote;
+            userVote[index][signer] = vote;
         }
 
         return true;
@@ -334,7 +333,7 @@ contract DisputeContract is AccessControlEnumerable {
             require(
                 hasRole(SERVER_ROLE, msg.sender) ||
                     msg.sender == _dispute.sideB,
-                "Only sideB or Server can claim"
+                "Only SideB or Server can claim"
             );
         }
 

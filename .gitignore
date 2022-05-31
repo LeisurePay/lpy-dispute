@@ -10,5 +10,6 @@ artifacts
 upgradeable
 gas-report.txt
 deployments
+keys.json
 yarn.lock
 package-lock.json
