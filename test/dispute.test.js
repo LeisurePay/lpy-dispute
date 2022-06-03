@@ -98,11 +98,11 @@ describe("Dispute Flow", () => {
 
     console.log("Dollar: $", +dollarValue, "Received: ", +received);
 
-    if (winner == 1) {
+    if (winner === 1) {
       const serverOldBalance = await mock.balanceOf(server.address);
 
       await expect(dispute.connect(merchant).claim(index)).to.be.revertedWith(
-        "Only server can claim"
+        "Only SideA or Server can claim"
       );
 
       await expect(dispute.connect(server).claim(index))
@@ -111,11 +111,11 @@ describe("Dispute Flow", () => {
 
       const serverNewBalance = await mock.balanceOf(server.address);
       expect(serverNewBalance).to.eq(serverOldBalance + received);
-    } else if (winner == 2) {
+    } else if (winner === 2) {
       const merchantOldBalance = await mock.balanceOf(merchant.address);
 
       await expect(dispute.connect(server).claim(index)).to.be.revertedWith(
-        "Only sideB can claim"
+        "Only SideB or Server can claim"
       );
 
       await expect(dispute.connect(merchant).claim(index))
