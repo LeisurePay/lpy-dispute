@@ -39,11 +39,15 @@ describe("Dispute Flow", () => {
     ] = await ethers.getSigners();
 
     const ERC20 = await ethers.getContractFactory("MockERC20");
+    const ERC721 = await ethers.getContractFactory("MockERC721");
     const DISPUTE = await ethers.getContractFactory("DisputeContract");
 
+    const erc271 = await ERC721.deploy("https://based.com/");
+    await erc271.safeMint(deployer.address, "");
+    await erc271.safeMint(deployer.address, "");
     mock = await ERC20.deploy();
 
-    const args = [mock.address, server.address, false];
+    const args = [mock.address, erc271.address, server.address, false];
     dispute = await DISPUTE.deploy(...args);
 
     first = false;

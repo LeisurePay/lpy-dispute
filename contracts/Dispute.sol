@@ -5,6 +5,7 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/access/AccessControlEnumerable.sol";
 import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "./IERC721.sol";
 
 /// @title LPY Dispute Contract
 /// @author Leisure Pay
@@ -31,7 +32,8 @@ contract DisputeContract is AccessControlEnumerable {
     }
 
     struct Dispute {
-        uint256 nftId;
+        uint256 disputeID;
+        string nftURI;
         uint256 usdValue;
         uint256 tokenValue;
         address sideA;
@@ -53,6 +55,7 @@ contract DisputeContract is AccessControlEnumerable {
     mapping(address => uint256[]) public disputeIndexesAsSideB;
 
     IERC20 private lpy;
+    IERC721Extended private lpyNFT;
     bool public isAuto;
 
     bytes32 public constant VOTE_A = keccak256(bytes("A"));
@@ -64,10 +67,12 @@ contract DisputeContract is AccessControlEnumerable {
     // CONSTRUCTOR
     constructor(
         IERC20 _lpy,
+        IERC721Extended _lpyNFT,
         address _server,
         bool _isAuto
     ) {
         lpy = _lpy;
+        lpyNFT = _lpyNFT;
 
         _grantRole(SERVER_ROLE, _server);
         _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
@@ -77,7 +82,7 @@ contract DisputeContract is AccessControlEnumerable {
     // EVENTS
     event DisputeCreated(
         uint256 indexed disputeIndex,
-        uint256 nftId,
+        string nftURI,
         uint256 usdValue,
         address indexed sideA,
         address indexed sideB,
@@ -118,7 +123,8 @@ contract DisputeContract is AccessControlEnumerable {
 
         Dispute memory dispute;
 
-        dispute.nftId = txID;
+        dispute.disputeID = disputes.length;
+        dispute.nftURI = lpyNFT.tokenURI(txID);
         dispute.sideA = _sideA;
         dispute.sideB = _sideB;
         dispute.arbiters = _arbiters;
@@ -133,7 +139,7 @@ contract DisputeContract is AccessControlEnumerable {
 
         emit DisputeCreated(
             disputes.length,
-            txID,
+            dispute.nftURI,
             usdValue,
             _sideA,
             _sideB,

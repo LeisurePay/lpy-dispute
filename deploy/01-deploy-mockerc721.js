@@ -1,17 +1,17 @@
 /* eslint-disable node/no-unpublished-require */
 const { verify, networkConfig, developmentChains } = require("../helpers");
 
-const deployMockERC20 = async (hre) => {
+const deployMockERC721 = async (hre) => {
   // @ts-ignore
   const { getNamedAccounts, deployments, network } = hre;
   const { deploy, log } = deployments;
   const { deployer } = await getNamedAccounts();
 
-  const args = [];
+  const args = ["https://based.com/"];
 
   log("----------------------------------------------------");
   log("Deploying MockToken and waiting for confirmations...");
-  const mockerc20 = await deploy("MockERC20", {
+  const mockerc721 = await deploy("MockERC721", {
     from: deployer,
     log: true,
     args,
@@ -20,14 +20,18 @@ const deployMockERC20 = async (hre) => {
       ? networkConfig[network.name].blockConfirmations
       : 1,
   });
-  log(`MockToken at ${mockerc20.address}`);
+  log(`MockToken at ${mockerc721.address}`);
   if (
     !developmentChains.includes(network.name) &&
     process.env.ETHERSCAN_API_KEY
   ) {
-    await verify(mockerc20.address, args, "contracts/MockERC20.sol:MockERC20");
+    await verify(
+      mockerc721.address,
+      args,
+      "contracts/MockERC721.sol:MockERC721"
+    );
   }
 };
 
-deployMockERC20.tags = ["all", "mockerc20"];
-module.exports = deployMockERC20;
+deployMockERC721.tags = ["all", "mockerc721"];
+module.exports = deployMockERC721;
