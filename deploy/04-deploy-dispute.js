@@ -6,9 +6,11 @@ const deployDispute = async (hre) => {
   const { getNamedAccounts, deployments, network } = hre;
   const { deploy, get, log } = deployments;
   const { deployer, server } = await getNamedAccounts();
+  const nft = await get("MockERC721");
   const mock = await get("MockERC20");
+  const IArb = await get("IterableArbiters");
 
-  const args = [mock.address, server, false];
+  const args = [mock.address, nft.address, server, false];
 
   log("----------------------------------------------------");
   log("Deploying DisputeContract and waiting for confirmations...");
@@ -20,6 +22,9 @@ const deployDispute = async (hre) => {
     waitConfirmations: networkConfig[network.name]
       ? networkConfig[network.name].blockConfirmations
       : 1,
+    libraries: {
+      IterableArbiters: IArb.address,
+    },
   });
   log(`DisputeContract at ${dispute.address}`);
   if (
@@ -29,7 +34,7 @@ const deployDispute = async (hre) => {
     await verify(
       dispute.address,
       args,
-      "contracts/Dispute.sol:DisputeContract"
+      "contracts/Dispute.sol:DisputeContract",
     );
   }
 };

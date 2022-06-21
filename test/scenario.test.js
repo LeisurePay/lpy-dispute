@@ -40,7 +40,7 @@ describe("Dispute Flow", () => {
 
     const ERC20 = await ethers.getContractFactory("MockERC20");
     const ERC721 = await ethers.getContractFactory("MockERC721");
-    const DISPUTE = await ethers.getContractFactory("DisputeContract");
+    const IARB = await ethers.getContractFactory("IterableArbiters");
 
     const erc271 = await ERC721.deploy("https://based.com/");
     await erc271.safeMint(deployer.address, "");
@@ -48,6 +48,11 @@ describe("Dispute Flow", () => {
     mock = await ERC20.deploy();
 
     const args = [mock.address, erc271.address, server.address, false];
+    const DISPUTE = await ethers.getContractFactory("DisputeContract", {
+      libraries: {
+        IterableArbiters: (await IARB.deploy()).address,
+      },
+    });
     dispute = await DISPUTE.deploy(...args);
 
     first = false;
@@ -77,7 +82,7 @@ describe("Dispute Flow", () => {
 
     await expect(
       dispute.connect(arbiter4).castVote(index, true)
-    ).to.be.revertedWith(`not allowed to vote`);
+    ).to.be.revertedWith(`Not an arbiter`);
   });
 
   it("3 Arbiters call castVote Function [SUCCESS]", async () => {
@@ -89,18 +94,25 @@ describe("Dispute Flow", () => {
 
     await (await dispute.connect(arbiter3).castVote(index, false)).wait(1);
 
-    const votes = await dispute.fetchVotes(index);
+
     const details = await dispute.getDisputeByIndex(index);
 
-    expect(votes.length).to.eq(3);
+    let iVotes = 0;
+    for (let i = 0; i < details.arbiters.length; i++) {
+      const element = details.arbiters[i];
+      iVotes += element.voted ? 1 : 0;
+    }
+
+    expect(iVotes).to.eq(3);
     expect(details.voteCount).to.eq(3);
+    expect(iVotes).to.eq(details.voteCount);
   });
 
   it("Arbiter1 Already Voted but tries to vote again [FAIL]", async () => {
     const index = 0;
     await expect(
       dispute.connect(arbiter1).castVote(index, true)
-    ).to.be.revertedWith(`already voted`);
+    ).to.be.revertedWith(`Already Voted`);
   });
 
   it("Server removes Arbiter1 from arbiters Array [vote count should reduce] [SUCCESS]", async () => {
@@ -145,11 +157,16 @@ describe("Dispute Flow", () => {
 
     await (await dispute.connect(arbiter4).castVote(index, true)).wait(1);
 
-    const votes = await dispute.fetchVotes(index);
     const details = await dispute.getDisputeByIndex(index);
 
+    let iVotes = 0;
+    for (let i = 0; i < details.arbiters.length; i++) {
+      const element = details.arbiters[i];
+      iVotes += element.voted ? 1 : 0;
+    }
+    
     expect(details.voteCount).to.eq(4);
-    expect(votes.length).to.eq(details.voteCount);
+    expect(iVotes).to.eq(details.voteCount);
   });
 
   it("Server removes All Arbiters + votes [SUCCESS]", async () => {
@@ -263,11 +280,11 @@ describe("Dispute Flow", () => {
 
     const _dispute = await dispute.getDisputeByIndex(0);
 
-    const dollarValue = _dispute.usdValue;
+    // const dollarValue = _dispute.usdValue;
     const received = _dispute.tokenValue;
     const winner = _dispute.winner;
 
-    console.log("Dollar: $", +dollarValue, "Received: ", +received);
+    // console.log("Dollar: $", +dollarValue, "Received: ", +received);
 
     if (winner === 1) {
       console.log("Sending to Server");
@@ -285,7 +302,7 @@ describe("Dispute Flow", () => {
       const serverNewBalance = await mock.balanceOf(server.address);
       expect(serverNewBalance).to.eq(serverOldBalance + received);
     } else if (winner === 2) {
-      console.log("Sending to Marchant");
+      console.log("Sending to Merchant");
 
       const merchantOldBalance = await mock.balanceOf(merchant.address);
 

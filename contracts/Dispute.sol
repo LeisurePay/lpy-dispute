@@ -6,12 +6,14 @@ import "@openzeppelin/contracts/access/AccessControlEnumerable.sol";
 import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "./IERC721.sol";
+import "./IterableArbiters.sol";
 
 /// @title LPY Dispute Contract
 /// @author Leisure Pay
 /// @notice Dispute Contract for the Leisure Pay Ecosystem
 /// @dev Dispute Contract for the Leisure Pay Ecosystem
 contract DisputeContract is AccessControlEnumerable {
+    using IterableArbiters for IterableArbiters.Map;
     using ECDSA for bytes32;
 
     enum State {
@@ -25,12 +27,6 @@ contract DisputeContract is AccessControlEnumerable {
         B
     }
 
-    struct UserVote {
-        address voter;
-        bool agree;
-        bool voted;
-    }
-
     struct Dispute {
         uint256 disputeID;
         string nftURI;
@@ -41,16 +37,34 @@ contract DisputeContract is AccessControlEnumerable {
         uint256 voteCount;
         uint256 support;
         uint256 against;
-        address[] arbiters;
+        IterableArbiters.Map arbiters;
+        // address[] arbiters;
         bool claimed;
         PARTIES winner;
         State state;
     }
 
-    Dispute[] private disputes;
+    struct DisputeView {
+        uint256 disputeID;
+        string nftURI;
+        uint256 usdValue;
+        uint256 tokenValue;
+        address sideA;
+        address sideB;
+        uint256 voteCount;
+        uint256 support;
+        uint256 against;
+        IterableArbiters.UserVote[] arbiters;
+        bool claimed;
+        PARTIES winner;
+        State state;
+    }
 
-    mapping(uint256 => mapping(address => bool)) public isArbiter;
-    mapping(uint256 => mapping(address => UserVote)) public userVote;
+    uint8 public numOfdisputes;
+    mapping(uint256 => Dispute) private disputes;
+
+    // mapping(uint256 => mapping(address => bool)) public isArbiter;
+    // mapping(uint256 => mapping(address => UserVote)) public userVote;
     mapping(address => uint256[]) public disputeIndexesAsSideA;
     mapping(address => uint256[]) public disputeIndexesAsSideB;
 
@@ -97,18 +111,18 @@ contract DisputeContract is AccessControlEnumerable {
 
     event DisputeClosed(
         uint256 indexed disputeIndex,
-        bool arbitersVote,
-        bool finalVote,
         uint256 usdValue,
         uint256 tokenValue,
         uint256 rate,
+        uint256 sideAVotes,
+        uint256 sideBVotes,
         PARTIES winner
     );
 
     event DisputeFundClaimed(
         uint256 indexed disputeIndex,
         uint256 tokenValue,
-        address claimer
+        address indexed claimer
     );
 
     // INTERNAL FUNCTIONS
@@ -121,31 +135,33 @@ contract DisputeContract is AccessControlEnumerable {
     ) internal returns (bool) {
         require(_sideA != _sideB, "sideA == sideB");
 
-        Dispute memory dispute;
+        uint256 disputeID = numOfdisputes++;
 
-        dispute.disputeID = disputes.length;
+        Dispute storage dispute = disputes[disputeID];
+
+        dispute.disputeID = disputeID;
         dispute.nftURI = lpyNFT.tokenURI(txID);
         dispute.sideA = _sideA;
         dispute.sideB = _sideB;
-        dispute.arbiters = _arbiters;
+
+        // dispute.arbiters = _arbiters;
         for (uint256 i = 0; i < _arbiters.length; i++) {
-            isArbiter[disputes.length][_arbiters[i]] = true;
+            dispute.arbiters.set(_arbiters[i], IterableArbiters.UserVote(_arbiters[i], false, false));
         }
         dispute.state = State.Open;
         dispute.usdValue = usdValue;
 
-        disputeIndexesAsSideA[_sideA].push(disputes.length);
-        disputeIndexesAsSideB[_sideB].push(disputes.length);
+        disputeIndexesAsSideA[_sideA].push(disputeID);
+        disputeIndexesAsSideB[_sideB].push(disputeID);
 
         emit DisputeCreated(
-            disputes.length,
+            disputeID,
             dispute.nftURI,
             usdValue,
             _sideA,
             _sideB,
             _arbiters
         );
-        disputes.push(dispute);
 
         return true;
     }
@@ -155,8 +171,8 @@ contract DisputeContract is AccessControlEnumerable {
         uint256 index,
         address signer,
         bool agree
-    ) internal returns (UserVote memory) {
-        UserVote memory vote = UserVote(signer, agree, true);
+    ) internal returns (IterableArbiters.UserVote memory) {
+        IterableArbiters.UserVote memory vote = IterableArbiters.UserVote(signer, agree, true);
 
         emit DisputeVoted(index, signer, agree);
 
@@ -165,7 +181,7 @@ contract DisputeContract is AccessControlEnumerable {
 
     function _finalizeDispute(
         uint256 index,
-        bool inFavor,
+        bool sideAWins,
         uint256 ratioValue
     ) internal returns (bool) {
         Dispute storage dispute = disputes[index];
@@ -174,19 +190,17 @@ contract DisputeContract is AccessControlEnumerable {
 
         dispute.tokenValue = dispute.usdValue * ratioValue;
 
-        bool sideAWins = dispute.support > dispute.against;
-
         dispute.winner = sideAWins ? PARTIES.A : PARTIES.B;
 
         dispute.state = State.Closed;
 
         emit DisputeClosed(
             index,
-            sideAWins,
-            inFavor,
             dispute.usdValue,
             dispute.tokenValue,
             ratioValue,
+            dispute.support,
+            dispute.against,
             dispute.winner
         );
 
@@ -229,16 +243,16 @@ contract DisputeContract is AccessControlEnumerable {
         Dispute storage dispute = disputes[index];
 
         require(dispute.state == State.Open, "dispute is closed");
-        require(isArbiter[index][msg.sender], "not allowed to vote");
-        require(!userVote[index][msg.sender].voted, "already voted");
+        require(dispute.arbiters.getIndexOfKey(msg.sender) != -1, "Not an arbiter");
+        require(!dispute.arbiters.get(msg.sender).voted, "Already Voted");
 
-        UserVote memory vote = _castVote(index, msg.sender, _agree);
+        IterableArbiters.UserVote memory vote = _castVote(index, msg.sender, _agree);
 
         dispute.voteCount += 1;
         dispute.support += _agree ? 1 : 0;
         dispute.against += _agree ? 0 : 1;
 
-        userVote[index][msg.sender] = vote;
+        dispute.arbiters.set(msg.sender, vote);
 
         return true;
     }
@@ -259,19 +273,21 @@ contract DisputeContract is AccessControlEnumerable {
                 _sigs[i]
             );
 
-            if (!isArbiter[index][signer]) {
+            if (dispute.arbiters.getIndexOfKey(signer) == -1) {
                 continue;
             }
-            if (userVote[index][signer].voted) {
+            if (dispute.arbiters.get(signer).voted) {
                 continue;
             }
 
-            UserVote memory vote = _castVote(index, signer, agree);
+            IterableArbiters.UserVote memory vote = _castVote(index, signer, agree);
 
             dispute.voteCount += 1;
             dispute.support += agree ? 1 : 0;
             dispute.against += agree ? 0 : 1;
-            userVote[index][signer] = vote;
+
+            dispute.arbiters.set(signer, vote);
+
         }
 
         return true;
@@ -290,12 +306,11 @@ contract DisputeContract is AccessControlEnumerable {
         onlyRole(SERVER_ROLE)
     {
         Dispute storage _dispute = disputes[index];
-        require(!isArbiter[index][_arbiter], "already an arbiter");
+
+        require(_dispute.arbiters.getIndexOfKey(_arbiter) == -1, "Not an arbiter");
         require(_dispute.state == State.Open, "dispute is closed");
 
-        userVote[index][_arbiter] = UserVote(_arbiter, false, false);
-        _dispute.arbiters.push(_arbiter);
-        isArbiter[index][_arbiter] = true;
+        _dispute.arbiters.set(_arbiter, IterableArbiters.UserVote(_arbiter, false, false));
     }
 
     function removeArbiter(uint256 index, address _arbiter)
@@ -303,28 +318,22 @@ contract DisputeContract is AccessControlEnumerable {
         onlyRole(SERVER_ROLE)
     {
         Dispute storage _dispute = disputes[index];
-        require(isArbiter[index][_arbiter], "not an arbiter");
+        
+        require(_dispute.arbiters.getIndexOfKey(_arbiter) != -1, "Not an arbiter");
         require(_dispute.state == State.Open, "dispute is closed");
 
-        uint256 length = _dispute.arbiters.length;
-        for (uint256 i = 0; i < length; i++) {
-            if (_dispute.arbiters[i] == _arbiter) {
-                _dispute.arbiters[i] = _dispute.arbiters[length - 1];
-                _dispute.arbiters.pop();
 
-                if (userVote[index][_arbiter].voted) {
-                    _dispute.support -= userVote[index][_arbiter].agree ? 1 : 0;
-                    _dispute.against -= userVote[index][_arbiter].agree ? 0 : 1;
-                    _dispute.voteCount -= 1;
-                }
-                userVote[index][_arbiter] = UserVote(address(0), false, false);
-                break;
-            }
+        IterableArbiters.UserVote memory vote = _dispute.arbiters.get(_arbiter);
+
+        if (vote.voted) {
+            _dispute.support -= vote.agree ? 1 : 0;
+            _dispute.against -= vote.agree ? 0 : 1;
+            _dispute.voteCount -= 1;
         }
-        isArbiter[index][_arbiter] = false;
+        _dispute.arbiters.remove(_arbiter);
     }
 
-    function claim(uint256 index) external returns (Dispute memory) {
+    function claim(uint256 index) external returns (bool) {
         Dispute storage _dispute = disputes[index];
         require(_dispute.state == State.Closed, "dispute is not closed");
         require(_dispute.claimed != true, "Already Claimed");
@@ -345,70 +354,68 @@ contract DisputeContract is AccessControlEnumerable {
 
         _dispute.claimed = true;
 
+        // @TODO USE TRANSFER FROM HERE
         require(
             lpy.transfer(msg.sender, _dispute.tokenValue),
             "CLAIM:: transfer failed"
         );
 
-        return _dispute;
+        return true;
     }
 
     // READ ONLY FUNCTIONS
 
-    function fetchVotes(uint256 index) public view returns (UserVote[] memory) {
-        Dispute memory dispute = disputes[index];
-        uint256 count;
-        for (uint256 i = 0; i < dispute.arbiters.length; i++) {
-            if (userVote[index][dispute.arbiters[i]].voted) {
-                count++;
-            }
-        }
 
-        UserVote[] memory _votes = new UserVote[](count);
+    function serializeDispute(uint index) internal view returns (DisputeView memory) {
+        Dispute storage _dispute = disputes[index];
 
-        uint256 outterIndex;
-        for (uint256 i = 0; i < dispute.arbiters.length; i++) {
-            UserVote memory _userVote = userVote[index][dispute.arbiters[i]];
-
-            if (_userVote.voted) {
-                _votes[outterIndex] = _userVote;
-                outterIndex++;
-            }
-        }
-
-        return _votes;
+        return DisputeView(
+            _dispute.disputeID,
+            _dispute.nftURI,
+            _dispute.usdValue,
+            _dispute.tokenValue,
+            _dispute.sideA,
+            _dispute.sideB,
+            _dispute.voteCount,
+            _dispute.support,
+            _dispute.against,
+            _dispute.arbiters.asArray(),
+            _dispute.claimed,
+            _dispute.winner,
+            _dispute.state
+        );
     }
 
     function getDisputeByIndex(uint256 index)
-        public
+        external
         view
-        returns (Dispute memory _dispute)
+        returns (DisputeView memory _dispute)
     {
-        _dispute = disputes[index];
+        _dispute = serializeDispute(index);
     }
 
-    function getCustomerOpenDisputes(address _user)
+    function getSideAOpenDisputes(address _user)
         public
         view
-        returns (Dispute[] memory)
+        returns (DisputeView[] memory)
     {
         uint256 count;
         for (uint256 i = 0; i < disputeIndexesAsSideA[_user].length; i++) {
             uint256 index = disputeIndexesAsSideA[_user][i];
-            Dispute memory dispute = getDisputeByIndex(index);
+            DisputeView memory dispute = serializeDispute(index);
             if (dispute.state == State.Open) {
                 count++;
             }
         }
 
-        Dispute[] memory _disputes = new Dispute[](count);
+        DisputeView[] memory _disputes = new DisputeView[](count);
 
         uint256 outterIndex;
         for (uint256 i = 0; i < disputeIndexesAsSideA[_user].length; i++) {
             uint256 index = disputeIndexesAsSideA[_user][i];
-            Dispute memory dispute = getDisputeByIndex(index);
+            DisputeView memory dispute = serializeDispute(index);
             if (dispute.state == State.Open) {
-                _disputes[outterIndex] = disputes[i];
+                _disputes[outterIndex] = dispute;
                 outterIndex++;
             }
         }
@@ -416,28 +423,28 @@ contract DisputeContract is AccessControlEnumerable {
         return _disputes;
     }
 
-    function getCustomerClosedDisputes(address _user)
+    function getSideAClosedDisputes(address _user)
         public
         view
-        returns (Dispute[] memory)
+        returns (DisputeView[] memory)
     {
         uint256 count;
         for (uint256 i = 0; i < disputeIndexesAsSideA[_user].length; i++) {
             uint256 index = disputeIndexesAsSideA[_user][i];
-            Dispute memory dispute = getDisputeByIndex(index);
+            DisputeView memory dispute = serializeDispute(index);
             if (dispute.state == State.Closed) {
                 count++;
             }
         }
 
-        Dispute[] memory _disputes = new Dispute[](count);
+        DisputeView[] memory _disputes = new DisputeView[](count);
 
         uint256 outterIndex;
         for (uint256 i = 0; i < disputeIndexesAsSideA[_user].length; i++) {
             uint256 index = disputeIndexesAsSideA[_user][i];
-            Dispute memory dispute = getDisputeByIndex(index);
+            DisputeView memory dispute = serializeDispute(index);
             if (dispute.state == State.Closed) {
-                _disputes[outterIndex] = disputes[i];
+                _disputes[outterIndex] = dispute;
                 outterIndex++;
             }
         }
@@ -445,28 +452,28 @@ contract DisputeContract is AccessControlEnumerable {
         return _disputes;
     }
 
-    function getMerchantOpenDisputes(address _user)
+    function getSideBOpenDisputes(address _user)
         public
         view
-        returns (Dispute[] memory)
+        returns (DisputeView[] memory)
     {
         uint256 count;
         for (uint256 i = 0; i < disputeIndexesAsSideB[_user].length; i++) {
             uint256 index = disputeIndexesAsSideB[_user][i];
-            Dispute memory dispute = getDisputeByIndex(index);
+            DisputeView memory dispute = serializeDispute(index);
             if (dispute.state == State.Open) {
                 count++;
             }
         }
 
-        Dispute[] memory _disputes = new Dispute[](count);
+        DisputeView[] memory _disputes = new DisputeView[](count);
 
         uint256 outterIndex;
         for (uint256 i = 0; i < disputeIndexesAsSideB[_user].length; i++) {
             uint256 index = disputeIndexesAsSideB[_user][i];
-            Dispute memory dispute = getDisputeByIndex(index);
+            DisputeView memory dispute = serializeDispute(index);
             if (dispute.state == State.Open) {
-                _disputes[outterIndex] = disputes[i];
+                _disputes[outterIndex] = dispute;
                 outterIndex++;
             }
         }
@@ -474,28 +481,28 @@ contract DisputeContract is AccessControlEnumerable {
         return _disputes;
     }
 
-    function getMerchantClosedDisputes(address _user)
+    function getSideBClosedDisputes(address _user)
         public
         view
-        returns (Dispute[] memory)
+        returns (DisputeView[] memory)
     {
         uint256 count;
         for (uint256 i = 0; i < disputeIndexesAsSideB[_user].length; i++) {
             uint256 index = disputeIndexesAsSideB[_user][i];
-            Dispute memory dispute = getDisputeByIndex(index);
+            DisputeView memory dispute = serializeDispute(index);
             if (dispute.state == State.Closed) {
                 count++;
             }
         }
 
-        Dispute[] memory _disputes = new Dispute[](count);
+        DisputeView[] memory _disputes = new DisputeView[](count);
 
         uint256 outterIndex;
         for (uint256 i = 0; i < disputeIndexesAsSideB[_user].length; i++) {
             uint256 index = disputeIndexesAsSideB[_user][i];
-            Dispute memory dispute = getDisputeByIndex(index);
+            DisputeView memory dispute = serializeDispute(index);
             if (dispute.state == State.Closed) {
-                _disputes[outterIndex] = disputes[i];
+                _disputes[outterIndex] = dispute;
                 outterIndex++;
             }
         }
@@ -506,40 +513,48 @@ contract DisputeContract is AccessControlEnumerable {
     function getAllDisputes()
         external
         view
-        returns (Dispute[] memory _disputes)
+        returns (DisputeView[] memory)
     {
-        _disputes = disputes;
+        uint256 count = numOfdisputes;
+        DisputeView[] memory _disputes = new DisputeView[](count);
+
+        for (uint256 i = 0; i < numOfdisputes; i++) {
+            DisputeView memory dispute = serializeDispute(i);
+            _disputes[i] = dispute;
+        }
+
+        return _disputes;
     }
 
-    function getMyOpenDisputesAsCustomer()
+    function getMyOpenDisputesAsSideA()
         external
         view
-        returns (Dispute[] memory _disputes)
+        returns (DisputeView[] memory _disputes)
     {
-        _disputes = getCustomerOpenDisputes(msg.sender);
+        _disputes = getSideAOpenDisputes(msg.sender);
     }
 
-    function getMyClosedDisputesAsCustomer()
+    function getMyClosedDisputesAsSideA()
         external
         view
-        returns (Dispute[] memory _disputes)
+        returns (DisputeView[] memory _disputes)
     {
-        _disputes = getCustomerClosedDisputes(msg.sender);
+        _disputes = getSideAClosedDisputes(msg.sender);
     }
 
-    function getMyOpenDisputesAsMerchant()
+    function getMyOpenDisputesAsSideB()
         external
         view
-        returns (Dispute[] memory _disputes)
+        returns (DisputeView[] memory _disputes)
     {
-        _disputes = getMerchantOpenDisputes(msg.sender);
+        _disputes = getSideBOpenDisputes(msg.sender);
     }
 
-    function getMyClosedDisputesAsMerchant()
+    function getMyClosedDisputesAsSideB()
         external
         view
-        returns (Dispute[] memory _disputes)
+        returns (DisputeView[] memory _disputes)
     {
-        _disputes = getMerchantClosedDisputes(msg.sender);
+        _disputes = getSideBClosedDisputes(msg.sender);
     }
 }

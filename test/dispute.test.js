@@ -17,7 +17,7 @@ describe("Dispute Flow", () => {
 
     const ERC20 = await ethers.getContractFactory("MockERC20");
     const ERC721 = await ethers.getContractFactory("MockERC721");
-    const DISPUTE = await ethers.getContractFactory("DisputeContract");
+    const IARB = await ethers.getContractFactory("IterableArbiters");
 
     mock = await ERC20.deploy();
     const erc271 = await ERC721.deploy("https://based.com/");
@@ -26,6 +26,11 @@ describe("Dispute Flow", () => {
     await erc271.safeMint(deployer.address, "");
 
     const args = [mock.address, erc271.address, server.address, false];
+    const DISPUTE = await ethers.getContractFactory("DisputeContract", {
+      libraries: {
+        IterableArbiters: (await IARB.deploy()).address,
+      },
+    });
     dispute = await DISPUTE.deploy(...args);
 
     first = false;
@@ -65,7 +70,7 @@ describe("Dispute Flow", () => {
 
     await expect(
       dispute.connect(customer).castVote(index, true)
-    ).to.be.revertedWith(`not allowed to vote`);
+    ).to.be.revertedWith("Not an arbiter");
 
     await dispute.connect(arbiter1).castVote(index, true);
 
@@ -75,12 +80,16 @@ describe("Dispute Flow", () => {
 
     await expect(
       dispute.connect(arbiter1).castVote(index, true)
-    ).to.be.revertedWith(`already voted`);
+    ).to.be.revertedWith("Already Voted");
 
-    const votes = await dispute.fetchVotes(index);
     const details = await dispute.getDisputeByIndex(index);
+    let votes = 0;
+    for (let i = 0; i < details.arbiters.length; i++) {
+      const element = details.arbiters[i];
+      votes += element.voted ? 1 : 0;
+    }
 
-    expect(votes.length).to.eq(details.voteCount);
+    expect(votes).to.eq(details.voteCount);
   });
 
   it("finalizeDispute Function", async () => {
@@ -92,16 +101,17 @@ describe("Dispute Flow", () => {
       "ERC20: transfer amount exceeds balance"
     );
 
+
     // Transfer funds to Dispute App
     await mock.connect(deployer).transfer(dispute.address, wei("1000"));
 
     const d = await dispute.getDisputeByIndex(index);
-    console.log(d);
-    const dollarValue = d.usdValue;
+    // console.log(d);
+    // const dollarValue = d.usdValue;
     const received = d.tokenValue;
     const winner = d.winner;
 
-    console.log("Dollar: $", +dollarValue, "Received: ", +received);
+    // console.log("Dollar: $", +dollarValue, "Received: ", +received);
 
     if (winner === 1) {
       const serverOldBalance = await mock.balanceOf(server.address);
@@ -119,7 +129,7 @@ describe("Dispute Flow", () => {
     } else if (winner === 2) {
       const merchantOldBalance = await mock.balanceOf(merchant.address);
 
-      await expect(dispute.connect(server).claim(index)).to.be.revertedWith(
+      await expect(dispute.connect(customer).claim(index)).to.be.revertedWith(
         "Only SideB or Server can claim"
       );
 
@@ -149,18 +159,18 @@ describe("Dispute Flow", () => {
           arbiter3.address,
         ]);
     }
-    const custOpen = await dispute.getCustomerOpenDisputes(customer.address);
-    const custClosed = await dispute.getCustomerClosedDisputes(
+    const custOpen = await dispute.getSideAOpenDisputes(customer.address);
+    const custClosed = await dispute.getSideAClosedDisputes(
       customer.address
     );
-    const merchOpen = await dispute.getMerchantOpenDisputes(merchant.address);
-    const merchClosed = await dispute.getMerchantClosedDisputes(
+    const merchOpen = await dispute.getSideBOpenDisputes(merchant.address);
+    const merchClosed = await dispute.getSideBClosedDisputes(
       merchant.address
     );
     const allDisputes = await dispute.getAllDisputes();
-    const myCustOpen = await dispute.getMyOpenDisputesAsCustomer();
-    const myCustClosed = await dispute.getMyClosedDisputesAsCustomer();
-    const myMercOpen = await dispute.getMyOpenDisputesAsMerchant();
-    const myMercClose = await dispute.getMyClosedDisputesAsMerchant();
+    const myCustOpen = await dispute.getMyOpenDisputesAsSideA();
+    const myCustClosed = await dispute.getMyClosedDisputesAsSideA();
+    const myMercOpen = await dispute.getMyOpenDisputesAsSideB();
+    const myMercClose = await dispute.getMyClosedDisputesAsSideB();
   });
 });
