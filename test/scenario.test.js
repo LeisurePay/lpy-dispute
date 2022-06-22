@@ -1,9 +1,10 @@
 const { ethers } = require("hardhat");
 const { expect } = require("chai");
 
-describe("Dispute Flow", () => {
+describe("Scenario Flow", () => {
   let dispute;
   let mock;
+  let erc721;
   let first = true;
   let [
     deployer,
@@ -42,12 +43,12 @@ describe("Dispute Flow", () => {
     const ERC721 = await ethers.getContractFactory("MockERC721");
     const IARB = await ethers.getContractFactory("IterableArbiters");
 
-    const erc271 = await ERC721.deploy("https://based.com/");
-    await erc271.safeMint(deployer.address, "");
-    await erc271.safeMint(deployer.address, "");
+    erc721 = await ERC721.deploy("https://based.com/");
+    await erc721.safeMint(deployer.address, "");
+    await erc721.safeMint(deployer.address, "");
     mock = await ERC20.deploy();
 
-    const args = [mock.address, erc271.address, server.address, false];
+    const args = [mock.address, server.address];
     const DISPUTE = await ethers.getContractFactory("DisputeContract", {
       libraries: {
         IterableArbiters: (await IARB.deploy()).address,
@@ -65,7 +66,7 @@ describe("Dispute Flow", () => {
     await (
       await dispute
         .connect(server)
-        .createDisputeByServer(customer.address, merchant.address, 1, 20, [
+        .createDisputeByServer(customer.address, merchant.address, false, erc721.address, 1, 20, [
           arbiter1.address,
           arbiter2.address,
           arbiter3.address,

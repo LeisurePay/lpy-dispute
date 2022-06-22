@@ -69,12 +69,16 @@ library IterableArbiters {
 
     }
 
-    function asArray(Map storage map) view public returns (UserVote[] memory) {
+    function asArray(Map storage map) public view returns (UserVote[] memory) {
         UserVote[] memory result = new UserVote[](map.keys.length);
 
         for (uint256 index = 0; index < map.keys.length; index++) {
             result[index] = map.values[map.keys[index]];
         }
         return result;
+    }
+
+    function keysAsArray(Map storage map) public view returns (address[] memory) {
+        return map.keys;
     }
 }

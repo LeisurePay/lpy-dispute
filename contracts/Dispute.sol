@@ -27,18 +27,23 @@ contract DisputeContract is AccessControlEnumerable {
         B
     }
 
+    struct NFT {
+        address _nft;
+        uint256 _id;
+    }
+
     struct Dispute {
         uint256 disputeID;
-        string nftURI;
+        NFT _nft;
         uint256 usdValue;
         uint256 tokenValue;
         address sideA;
         address sideB;
+        bool isAuto;
         uint256 voteCount;
         uint256 support;
         uint256 against;
         IterableArbiters.Map arbiters;
-        // address[] arbiters;
         bool claimed;
         PARTIES winner;
         State state;
@@ -46,11 +51,12 @@ contract DisputeContract is AccessControlEnumerable {
 
     struct DisputeView {
         uint256 disputeID;
-        string nftURI;
+        NFT _nft;
         uint256 usdValue;
         uint256 tokenValue;
         address sideA;
         address sideB;
+        bool isAuto;
         uint256 voteCount;
         uint256 support;
         uint256 against;
@@ -69,8 +75,6 @@ contract DisputeContract is AccessControlEnumerable {
     mapping(address => uint256[]) public disputeIndexesAsSideB;
 
     IERC20 private lpy;
-    IERC721Extended private lpyNFT;
-    bool public isAuto;
 
     bytes32 public constant VOTE_A = keccak256(bytes("A"));
     bytes32 public constant VOTE_B = keccak256(bytes("B"));
@@ -81,22 +85,18 @@ contract DisputeContract is AccessControlEnumerable {
     // CONSTRUCTOR
     constructor(
         IERC20 _lpy,
-        IERC721Extended _lpyNFT,
-        address _server,
-        bool _isAuto
+        address _server
     ) {
         lpy = _lpy;
-        lpyNFT = _lpyNFT;
 
         _grantRole(SERVER_ROLE, _server);
         _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
-        isAuto = _isAuto;
     }
 
     // EVENTS
     event DisputeCreated(
         uint256 indexed disputeIndex,
-        string nftURI,
+        NFT _nft,
         uint256 usdValue,
         address indexed sideA,
         address indexed sideB,
@@ -129,6 +129,8 @@ contract DisputeContract is AccessControlEnumerable {
     function _createDispute(
         address _sideA,
         address _sideB,
+        bool _isAuto,
+        address _nftAddr,
         uint256 txID,
         uint256 usdValue,
         address[] memory _arbiters
@@ -140,11 +142,11 @@ contract DisputeContract is AccessControlEnumerable {
         Dispute storage dispute = disputes[disputeID];
 
         dispute.disputeID = disputeID;
-        dispute.nftURI = lpyNFT.tokenURI(txID);
+        dispute._nft = NFT(_nftAddr, txID);
         dispute.sideA = _sideA;
         dispute.sideB = _sideB;
+        dispute.isAuto = _isAuto;
 
-        // dispute.arbiters = _arbiters;
         for (uint256 i = 0; i < _arbiters.length; i++) {
             dispute.arbiters.set(_arbiters[i], IterableArbiters.UserVote(_arbiters[i], false, false));
         }
@@ -156,11 +158,11 @@ contract DisputeContract is AccessControlEnumerable {
 
         emit DisputeCreated(
             disputeID,
-            dispute.nftURI,
+            dispute._nft,
             usdValue,
             _sideA,
             _sideB,
-            _arbiters
+            dispute.arbiters.keysAsArray()
         );
 
         return true;
@@ -225,18 +227,21 @@ contract DisputeContract is AccessControlEnumerable {
 
     // PUBLIC AND EXTERNAL FUNCTIONS
 
-    function toggleAuto() external onlyRole(DEFAULT_ADMIN_ROLE) {
-        isAuto = !isAuto;
+    function toggleAuto(uint disputeIndex) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        Dispute storage dispute = disputes[disputeIndex];
+        dispute.isAuto = !dispute.isAuto;
     }
 
     function createDisputeByServer(
         address _sideA,
         address _sideB,
+        bool _isAuto,
+        address _nftAddr,
         uint256 txID,
         uint256 usdValue,
         address[] memory _arbiters
     ) external onlyRole(SERVER_ROLE) returns (bool) {
-        return _createDispute(_sideA, _sideB, txID, usdValue, _arbiters);
+        return _createDispute(_sideA, _sideB, _isAuto, _nftAddr, txID, usdValue, _arbiters);
     }
 
     function castVote(uint256 index, bool _agree) external returns (bool) {
@@ -295,10 +300,10 @@ contract DisputeContract is AccessControlEnumerable {
 
     function finalizeDispute(
         uint256 index,
-        bool inFavor,
+        bool vote,
         uint256 ratio // tokens per dollar
     ) external onlyRole(SERVER_ROLE) returns (bool) {
-        return _finalizeDispute(index, inFavor, ratio);
+        return _finalizeDispute(index, vote, ratio);
     }
 
     function addArbiter(uint256 index, address _arbiter)
@@ -333,6 +338,22 @@ contract DisputeContract is AccessControlEnumerable {
         _dispute.arbiters.remove(_arbiter);
     }
 
+    function updateSideA(uint256 disputeId, address _sideA)
+        external
+        onlyRole(SERVER_ROLE)
+    {
+        Dispute storage _dispute = disputes[disputeId];
+        _dispute.sideA = _sideA;
+    }
+
+    function updateSideB(uint256 disputeId, address _sideB)
+        external
+        onlyRole(SERVER_ROLE)
+    {
+        Dispute storage _dispute = disputes[disputeId];
+        _dispute.sideB = _sideB;
+    }
+
     function claim(uint256 index) external returns (bool) {
         Dispute storage _dispute = disputes[index];
         require(_dispute.state == State.Closed, "dispute is not closed");
@@ -365,17 +386,17 @@ contract DisputeContract is AccessControlEnumerable {
 
     // READ ONLY FUNCTIONS
 
-
     function serializeDispute(uint index) internal view returns (DisputeView memory) {
         Dispute storage _dispute = disputes[index];
 
         return DisputeView(
             _dispute.disputeID,
-            _dispute.nftURI,
+            _dispute._nft,
             _dispute.usdValue,
             _dispute.tokenValue,
             _dispute.sideA,
             _dispute.sideB,
+            _dispute.isAuto,
             _dispute.voteCount,
             _dispute.support,
             _dispute.against,

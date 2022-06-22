@@ -4,6 +4,7 @@ const { expect } = require("chai");
 describe("Dispute Flow", () => {
   let dispute;
   let mock;
+  let erc721;
   let first = true;
   let [deployer, server, customer, merchant, arbiter1, arbiter2, arbiter3] =
     Array(7).fill(null);
@@ -20,12 +21,12 @@ describe("Dispute Flow", () => {
     const IARB = await ethers.getContractFactory("IterableArbiters");
 
     mock = await ERC20.deploy();
-    const erc271 = await ERC721.deploy("https://based.com/");
+    erc721 = await ERC721.deploy("https://based.com/");
 
-    await erc271.safeMint(deployer.address, "");
-    await erc271.safeMint(deployer.address, "");
+    await erc721.safeMint(deployer.address, "");
+    await erc721.safeMint(deployer.address, "");
 
-    const args = [mock.address, erc271.address, server.address, false];
+    const args = [mock.address, server.address];
     const DISPUTE = await ethers.getContractFactory("DisputeContract", {
       libraries: {
         IterableArbiters: (await IARB.deploy()).address,
@@ -36,25 +37,13 @@ describe("Dispute Flow", () => {
     first = false;
   });
 
-  it("toggle can only be called by accounts with DEFAULT_ADMIN_ROLE", async () => {
-    const DEFAULT_ADMIN_ROLE = await dispute.DEFAULT_ADMIN_ROLE();
-    const isAuto = await dispute.isAuto();
-    await expect(dispute.connect(server).toggleAuto()).to.be.revertedWith(
-      `AccessControl: account ${server.address.toLowerCase()} is missing role ${DEFAULT_ADMIN_ROLE}`
-    );
-    await dispute.connect(deployer).toggleAuto();
-    const newAuto = await dispute.isAuto();
-
-    expect(newAuto).to.equal(!isAuto);
-  });
-
   it("address with server role can create dispute", async () => {
     let disputes = await dispute.getAllDisputes();
     expect(disputes.length).to.eq(0);
 
     await dispute
       .connect(server)
-      .createDisputeByServer(customer.address, merchant.address, 1, 20, [
+      .createDisputeByServer(customer.address, merchant.address, false, erc721.address, 1, 20, [
         arbiter1.address,
         arbiter2.address,
         arbiter3.address,
@@ -63,6 +52,19 @@ describe("Dispute Flow", () => {
     disputes = await dispute.getAllDisputes();
 
     expect(disputes.length).to.eq(1);
+  });
+
+  it("toggle can only be called by accounts with DEFAULT_ADMIN_ROLE", async () => {
+    const DEFAULT_ADMIN_ROLE = await dispute.DEFAULT_ADMIN_ROLE();
+    const { isAuto } = await dispute.getDisputeByIndex(0);
+    await expect(dispute.connect(server).toggleAuto(0)).to.be.revertedWith(
+      `AccessControl: account ${server.address.toLowerCase()} is missing role ${DEFAULT_ADMIN_ROLE}`
+    );
+    await dispute.connect(deployer).toggleAuto(0);
+    const { isAuto: newAuto } = await dispute.getDisputeByIndex(0);
+    expect(newAuto).to.equal(!isAuto);
+
+    await dispute.connect(deployer).toggleAuto(0);
   });
 
   it("castVote Function", async () => {
@@ -153,7 +155,7 @@ describe("Dispute Flow", () => {
     for (let i = 0; i < 3; i++) {
       await dispute
         .connect(server)
-        .createDisputeByServer(customer.address, merchant.address, 1, 20, [
+        .createDisputeByServer(customer.address, merchant.address, false, erc721.address, 1, 20, [
           arbiter1.address,
           arbiter2.address,
           arbiter3.address,
