@@ -227,7 +227,9 @@ contract DisputeContract is AccessControlEnumerable {
 
     // PUBLIC AND EXTERNAL FUNCTIONS
 
-    function toggleAuto(uint disputeIndex) external onlyRole(DEFAULT_ADMIN_ROLE) {
+    function toggleAuto(uint disputeIndex) external {
+        require(hasRole(DEFAULT_ADMIN_ROLE, msg.sender) || hasRole(SERVER_ROLE, msg.sender), "Only Admin or Server Allowed");
+        
         Dispute storage dispute = disputes[disputeIndex];
         dispute.isAuto = !dispute.isAuto;
     }
@@ -356,6 +358,7 @@ contract DisputeContract is AccessControlEnumerable {
 
     function claim(uint256 index) external returns (bool) {
         Dispute storage _dispute = disputes[index];
+        require(_dispute.isAuto, "Can't claim funds");
         require(_dispute.state == State.Closed, "dispute is not closed");
         require(_dispute.claimed != true, "Already Claimed");
 

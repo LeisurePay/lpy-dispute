@@ -271,65 +271,75 @@ describe("Scenario Flow", () => {
     expect(_dispute.state).to.equal(1); // Closed
   });
 
-  it("Winner or Sever should be able to call claim function", async () => {
-    await expect(dispute.connect(server).claim(0)).to.be.revertedWith(
-      "ERC20: transfer amount exceeds balance"
-    );
+  describe("Winner or Sever should be able to call claim function", () => {
+    it("should fail when isAuto is off", async () => {
+      await expect(dispute.connect(server).claim(0)).to.be.revertedWith(
+        "Can't claim funds"
+      );
+    });
 
-    // Transfer funds to Dispute App
-    await mock.connect(deployer).transfer(dispute.address, wei("1000"));
+    it("should succeed when isAuto is on", async () => {
+      await dispute.connect(server).toggleAuto(0);
 
-    const _dispute = await dispute.getDisputeByIndex(0);
-
-    // const dollarValue = _dispute.usdValue;
-    const received = _dispute.tokenValue;
-    const winner = _dispute.winner;
-
-    // console.log("Dollar: $", +dollarValue, "Received: ", +received);
-
-    if (winner === 1) {
-      console.log("Sending to Server");
-
-      const serverOldBalance = await mock.balanceOf(server.address);
-
-      await expect(dispute.connect(merchant).claim(0)).to.be.revertedWith(
-        "Only SideA or Server can claim"
+      await expect(dispute.connect(server).claim(0)).to.be.revertedWith(
+        "ERC20: transfer amount exceeds balance"
       );
 
-      await expect(dispute.connect(server).claim(0))
-        .to.emit(mock, "Transfer")
-        .withArgs(dispute.address, server.address, received);
+      // Transfer funds to Dispute App
+      await mock.connect(deployer).transfer(dispute.address, wei("1000"));
 
-      const serverNewBalance = await mock.balanceOf(server.address);
-      expect(serverNewBalance).to.eq(serverOldBalance + received);
-    } else if (winner === 2) {
-      console.log("Sending to Merchant");
+      const _dispute = await dispute.getDisputeByIndex(0);
 
-      const merchantOldBalance = await mock.balanceOf(merchant.address);
+      // const dollarValue = _dispute.usdValue;
+      const received = _dispute.tokenValue;
+      const winner = _dispute.winner;
 
-      await expect(dispute.connect(customer).claim(0)).to.be.revertedWith(
-        "Only SideB or Server can claim"
+      // console.log("Dollar: $", +dollarValue, "Received: ", +received);
+
+      if (winner === 1) {
+        console.log("Sending to Server");
+  
+        const serverOldBalance = await mock.balanceOf(server.address);
+  
+        await expect(dispute.connect(merchant).claim(0)).to.be.revertedWith(
+          "Only SideA or Server can claim"
+        );
+  
+        await expect(dispute.connect(server).claim(0))
+          .to.emit(mock, "Transfer")
+          .withArgs(dispute.address, server.address, received);
+  
+        const serverNewBalance = await mock.balanceOf(server.address);
+        expect(serverNewBalance).to.eq(serverOldBalance + received);
+      } else if (winner === 2) {
+        console.log("Sending to Merchant");
+  
+        const merchantOldBalance = await mock.balanceOf(merchant.address);
+  
+        await expect(dispute.connect(customer).claim(0)).to.be.revertedWith(
+          "Only SideB or Server can claim"
+        );
+  
+        await expect(dispute.connect(merchant).claim(0))
+          .to.emit(mock, "Transfer")
+          .withArgs(dispute.address, merchant.address, received);
+  
+        const merchantNewBalance = await mock.balanceOf(merchant.address);
+        expect(merchantNewBalance).to.eq(merchantOldBalance + received);
+      } else {
+        throw new Error("Winner is not set");
+      }
+
+      const deets = await dispute.getDisputeByIndex(0);
+      expect(deets.state).to.eq(1); // CLOSED
+
+      await expect(
+        dispute.connect(arbiter1).castVote(0, true)
+      ).to.be.revertedWith(`dispute is closed`);
+
+      await expect(dispute.connect(server).claim(0)).to.be.revertedWith(
+        "Already Claimed"
       );
-
-      await expect(dispute.connect(merchant).claim(0))
-        .to.emit(mock, "Transfer")
-        .withArgs(dispute.address, merchant.address, received);
-
-      const merchantNewBalance = await mock.balanceOf(merchant.address);
-      expect(merchantNewBalance).to.eq(merchantOldBalance + received);
-    } else {
-      throw new Error("Winner is not set");
-    }
-
-    const deets = await dispute.getDisputeByIndex(0);
-    expect(deets.state).to.eq(1); // CLOSED
-
-    await expect(
-      dispute.connect(arbiter1).castVote(0, true)
-    ).to.be.revertedWith(`dispute is closed`);
-
-    await expect(dispute.connect(server).claim(0)).to.be.revertedWith(
-      "Already Claimed"
-    );
+    });
   });
 });

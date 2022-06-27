@@ -54,11 +54,10 @@ describe("Dispute Flow", () => {
     expect(disputes.length).to.eq(1);
   });
 
-  it("toggle can only be called by accounts with DEFAULT_ADMIN_ROLE", async () => {
-    const DEFAULT_ADMIN_ROLE = await dispute.DEFAULT_ADMIN_ROLE();
+  it("toggle can only be called by accounts with DEFAULT_ADMIN_ROLE or SERVER_ROLE", async () => {
     const { isAuto } = await dispute.getDisputeByIndex(0);
-    await expect(dispute.connect(server).toggleAuto(0)).to.be.revertedWith(
-      `AccessControl: account ${server.address.toLowerCase()} is missing role ${DEFAULT_ADMIN_ROLE}`
+    await expect(dispute.connect(customer).toggleAuto(0)).to.be.revertedWith(
+      "Only Admin or Server Allowed"
     );
     await dispute.connect(deployer).toggleAuto(0);
     const { isAuto: newAuto } = await dispute.getDisputeByIndex(0);
@@ -100,9 +99,14 @@ describe("Dispute Flow", () => {
     await dispute.connect(server).finalizeDispute(index, false, wei("1"));
 
     await expect(dispute.connect(server).claim(index)).to.be.revertedWith(
-      "ERC20: transfer amount exceeds balance"
+      "Can't claim funds"
     );
 
+    await dispute.connect(server).toggleAuto(index);
+
+    await expect(dispute.connect(server).claim(index)).to.be.revertedWith(
+      "ERC20: transfer amount exceeds balance"
+    );
 
     // Transfer funds to Dispute App
     await mock.connect(deployer).transfer(dispute.address, wei("1000"));
