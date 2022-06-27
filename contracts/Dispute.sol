@@ -69,8 +69,6 @@ contract DisputeContract is AccessControlEnumerable {
     uint8 public numOfdisputes;
     mapping(uint256 => Dispute) private disputes;
 
-    // mapping(uint256 => mapping(address => bool)) public isArbiter;
-    // mapping(uint256 => mapping(address => UserVote)) public userVote;
     mapping(address => uint256[]) public disputeIndexesAsSideA;
     mapping(address => uint256[]) public disputeIndexesAsSideB;
 
@@ -148,6 +146,7 @@ contract DisputeContract is AccessControlEnumerable {
         dispute.isAuto = _isAuto;
 
         for (uint256 i = 0; i < _arbiters.length; i++) {
+            require(!dispute.arbiters.contains(_arbiters[i]), "Duplicate Keys");
             dispute.arbiters.set(_arbiters[i], IterableArbiters.UserVote(_arbiters[i], false, false));
         }
         dispute.state = State.Open;
@@ -187,6 +186,7 @@ contract DisputeContract is AccessControlEnumerable {
         uint256 ratioValue
     ) internal returns (bool) {
         Dispute storage dispute = disputes[index];
+        require(dispute.voteCount == dispute.arbiters.size(), "Votes not completed");
 
         require(dispute.state == State.Open, "dispute is closed");
 
@@ -229,7 +229,7 @@ contract DisputeContract is AccessControlEnumerable {
 
     function toggleAuto(uint disputeIndex) external {
         require(hasRole(DEFAULT_ADMIN_ROLE, msg.sender) || hasRole(SERVER_ROLE, msg.sender), "Only Admin or Server Allowed");
-        
+
         Dispute storage dispute = disputes[disputeIndex];
         dispute.isAuto = !dispute.isAuto;
     }
@@ -250,7 +250,7 @@ contract DisputeContract is AccessControlEnumerable {
         Dispute storage dispute = disputes[index];
 
         require(dispute.state == State.Open, "dispute is closed");
-        require(dispute.arbiters.getIndexOfKey(msg.sender) != -1, "Not an arbiter");
+        require(dispute.arbiters.contains(msg.sender), "Not an arbiter");
         require(!dispute.arbiters.get(msg.sender).voted, "Already Voted");
 
         IterableArbiters.UserVote memory vote = _castVote(index, msg.sender, _agree);
@@ -280,12 +280,10 @@ contract DisputeContract is AccessControlEnumerable {
                 _sigs[i]
             );
 
-            if (dispute.arbiters.getIndexOfKey(signer) == -1) {
+            if (!dispute.arbiters.contains(signer)) {
                 continue;
             }
-            if (dispute.arbiters.get(signer).voted) {
-                continue;
-            }
+            require(!dispute.arbiters.get(signer).voted, "Already Voted");
 
             IterableArbiters.UserVote memory vote = _castVote(index, signer, agree);
 
@@ -314,7 +312,7 @@ contract DisputeContract is AccessControlEnumerable {
     {
         Dispute storage _dispute = disputes[index];
 
-        require(_dispute.arbiters.getIndexOfKey(_arbiter) == -1, "Not an arbiter");
+        require(!_dispute.arbiters.contains(_arbiter), "Not an arbiter");
         require(_dispute.state == State.Open, "dispute is closed");
 
         _dispute.arbiters.set(_arbiter, IterableArbiters.UserVote(_arbiter, false, false));
@@ -326,7 +324,7 @@ contract DisputeContract is AccessControlEnumerable {
     {
         Dispute storage _dispute = disputes[index];
         
-        require(_dispute.arbiters.getIndexOfKey(_arbiter) != -1, "Not an arbiter");
+        require(_dispute.arbiters.contains(_arbiter), "Not an arbiter");
         require(_dispute.state == State.Open, "dispute is closed");
 
 
@@ -388,7 +386,6 @@ contract DisputeContract is AccessControlEnumerable {
     }
 
     // READ ONLY FUNCTIONS
-
     function serializeDispute(uint index) internal view returns (DisputeView memory) {
         Dispute storage _dispute = disputes[index];
 

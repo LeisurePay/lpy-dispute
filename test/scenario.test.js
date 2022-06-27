@@ -59,6 +59,21 @@ describe("Scenario Flow", () => {
     first = false;
   });
 
+  it("Server Creates Dispute (Duplicate Arbiters) [FAIL]", async () => {
+    let disputes = await dispute.getAllDisputes();
+    expect(disputes.length).to.eq(0);
+
+    await expect(
+      dispute.connect(server).createDisputeByServer(customer.address, merchant.address, false, erc721.address, 1, 20, [
+        arbiter1.address,
+        arbiter1.address
+      ]), "Duplicate keys");
+
+    disputes = await dispute.getAllDisputes();
+
+    expect(disputes.length).to.eq(0);
+  });
+
   it("Server Creates Dispute [SUCCESS]", async () => {
     let disputes = await dispute.getAllDisputes();
     expect(disputes.length).to.eq(0);
@@ -241,10 +256,7 @@ describe("Scenario Flow", () => {
     }
   });
 
-  it("Server submits signed votes [SUCCESS]", async () => {
-    let _dispute = await dispute.getDisputeByIndex(0);
-    expect(_dispute.voteCount).to.equal(0);
-
+  it("Server submits signed votes with duplicates [FAIL] ", async () => {
     const _msgs = [];
     const _sigs = [];
 
@@ -252,6 +264,58 @@ describe("Scenario Flow", () => {
       _msgs.push(votes[i].choice);
       _sigs.push(votes[i].signature);
     }
+
+    _msgs.push(votes[0].choice);
+    _sigs.push(votes[0].signature);
+
+    let _dispute = await dispute.getDisputeByIndex(0);
+    expect(_dispute.voteCount).to.equal(0);
+
+    await expect(dispute.connect(server).castVotesWithSignatures(0, _sigs, _msgs)).to.be.revertedWith(
+      "Already Voted"
+    );
+
+    _dispute = await dispute.getDisputeByIndex(0);
+    expect(_dispute.voteCount).to.equal(0);
+  });
+
+  it("Server submits 3 signed votes without duplicates [SUCCESS] ", async () => {
+    const _msgs = [];
+    const _sigs = [];
+
+    for (let i = 0; i < 3; i++) {
+      _msgs.push(votes[i].choice);
+      _sigs.push(votes[i].signature);
+    }
+
+    let _dispute = await dispute.getDisputeByIndex(0);
+    expect(_dispute.voteCount).to.equal(0);
+
+    await (
+      await dispute.connect(server).castVotesWithSignatures(0, _sigs, _msgs)
+    ).wait(1);
+
+    _dispute = await dispute.getDisputeByIndex(0);
+    expect(_dispute.voteCount).to.equal(3);
+  });
+
+  it("Server should call finalizeDispute function [FAIL : not all Arbiter voted]", async () => {
+    await expect(
+      dispute.connect(server).finalizeDispute(0, false, wei("1"))
+    ).to.be.revertedWith("Votes not completed");
+  });
+
+  it("Server submits last signed vote [SUCCESS] ", async () => {
+    const _msgs = [];
+    const _sigs = [];
+
+    for (let i = 3; i < 4; i++) {
+      _msgs.push(votes[i].choice);
+      _sigs.push(votes[i].signature);
+    }
+
+    let _dispute = await dispute.getDisputeByIndex(0);
+    expect(_dispute.voteCount).to.equal(3);
 
     await (
       await dispute.connect(server).castVotesWithSignatures(0, _sigs, _msgs)
@@ -261,7 +325,7 @@ describe("Scenario Flow", () => {
     expect(_dispute.voteCount).to.equal(4);
   });
 
-  it("Server should call finalizeDispute function", async () => {
+  it("Server should call finalizeDispute function [SUCCESS]", async () => {
     await (
       await dispute.connect(server).finalizeDispute(0, false, wei("1"))
     ).wait(1);
@@ -297,7 +361,7 @@ describe("Scenario Flow", () => {
       // console.log("Dollar: $", +dollarValue, "Received: ", +received);
 
       if (winner === 1) {
-        console.log("Sending to Server");
+        // console.log("Sending to Server");
   
         const serverOldBalance = await mock.balanceOf(server.address);
   
@@ -312,7 +376,7 @@ describe("Scenario Flow", () => {
         const serverNewBalance = await mock.balanceOf(server.address);
         expect(serverNewBalance).to.eq(serverOldBalance + received);
       } else if (winner === 2) {
-        console.log("Sending to Merchant");
+        // console.log("Sending to Merchant");
   
         const merchantOldBalance = await mock.balanceOf(merchant.address);
   

@@ -39,8 +39,12 @@ describe("Dispute Flow", () => {
 
   it("address with server role can create dispute", async () => {
     let disputes = await dispute.getAllDisputes();
-    expect(disputes.length).to.eq(0);
-
+    await expect(disputes.length).to.eq(0);
+    await expect(
+      dispute.connect(server).createDisputeByServer(customer.address, merchant.address, false, erc721.address, 1, 20, [
+        arbiter1.address,
+        arbiter1.address
+      ]), "Duplicate keys");
     await dispute
       .connect(server)
       .createDisputeByServer(customer.address, merchant.address, false, erc721.address, 1, 20, [

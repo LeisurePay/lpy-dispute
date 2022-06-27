@@ -17,6 +17,10 @@ library IterableArbiters {
         mapping(address => bool) inserted;
     }
 
+    function contains(Map storage map, address key) public view returns (bool) {
+        return map.inserted[key];
+    }
+
     function get(Map storage map, address key) public view returns (UserVote memory) {
         return map.values[key];
     }
