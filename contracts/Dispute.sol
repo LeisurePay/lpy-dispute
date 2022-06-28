@@ -39,7 +39,7 @@ contract DisputeContract is AccessControlEnumerable {
         uint256 tokenValue;
         address sideA;
         address sideB;
-        bool isAuto;
+        bool hasClaim;
         uint256 voteCount;
         uint256 support;
         uint256 against;
@@ -56,7 +56,7 @@ contract DisputeContract is AccessControlEnumerable {
         uint256 tokenValue;
         address sideA;
         address sideB;
-        bool isAuto;
+        bool hasClaim;
         uint256 voteCount;
         uint256 support;
         uint256 against;
@@ -127,7 +127,7 @@ contract DisputeContract is AccessControlEnumerable {
     function _createDispute(
         address _sideA,
         address _sideB,
-        bool _isAuto,
+        bool _hasClaim,
         address _nftAddr,
         uint256 txID,
         uint256 usdValue,
@@ -143,7 +143,7 @@ contract DisputeContract is AccessControlEnumerable {
         dispute._nft = NFT(_nftAddr, txID);
         dispute.sideA = _sideA;
         dispute.sideB = _sideB;
-        dispute.isAuto = _isAuto;
+        dispute.hasClaim = _hasClaim;
 
         for (uint256 i = 0; i < _arbiters.length; i++) {
             require(!dispute.arbiters.contains(_arbiters[i]), "Duplicate Keys");
@@ -196,6 +196,9 @@ contract DisputeContract is AccessControlEnumerable {
 
         dispute.state = State.Closed;
 
+        if(!dispute.hasClaim)
+            dispute.claimed = true;
+
         emit DisputeClosed(
             index,
             dispute.usdValue,
@@ -227,23 +230,23 @@ contract DisputeContract is AccessControlEnumerable {
 
     // PUBLIC AND EXTERNAL FUNCTIONS
 
-    function toggleAuto(uint disputeIndex) external {
+    function toggleHasClaim(uint disputeIndex) external {
         require(hasRole(DEFAULT_ADMIN_ROLE, msg.sender) || hasRole(SERVER_ROLE, msg.sender), "Only Admin or Server Allowed");
 
         Dispute storage dispute = disputes[disputeIndex];
-        dispute.isAuto = !dispute.isAuto;
+        dispute.hasClaim = !dispute.hasClaim;
     }
 
     function createDisputeByServer(
         address _sideA,
         address _sideB,
-        bool _isAuto,
+        bool _hasClaim,
         address _nftAddr,
         uint256 txID,
         uint256 usdValue,
         address[] memory _arbiters
     ) external onlyRole(SERVER_ROLE) returns (bool) {
-        return _createDispute(_sideA, _sideB, _isAuto, _nftAddr, txID, usdValue, _arbiters);
+        return _createDispute(_sideA, _sideB, _hasClaim, _nftAddr, txID, usdValue, _arbiters);
     }
 
     function castVote(uint256 index, bool _agree) external returns (bool) {
@@ -356,7 +359,6 @@ contract DisputeContract is AccessControlEnumerable {
 
     function claim(uint256 index) external returns (bool) {
         Dispute storage _dispute = disputes[index];
-        require(_dispute.isAuto, "Can't claim funds");
         require(_dispute.state == State.Closed, "dispute is not closed");
         require(_dispute.claimed != true, "Already Claimed");
 
@@ -382,6 +384,8 @@ contract DisputeContract is AccessControlEnumerable {
             "CLAIM:: transfer failed"
         );
 
+        emit DisputeFundClaimed(_dispute.disputeID, _dispute.tokenValue, msg.sender);
+
         return true;
     }
 
@@ -396,7 +400,7 @@ contract DisputeContract is AccessControlEnumerable {
             _dispute.tokenValue,
             _dispute.sideA,
             _dispute.sideB,
-            _dispute.isAuto,
+            _dispute.hasClaim,
             _dispute.voteCount,
             _dispute.support,
             _dispute.against,

@@ -88,9 +88,20 @@ describe("Scenario Flow", () => {
         ])
     ).wait(1);
 
+    // Initialize dispute index 1 with true value for hasClaim field
+    await (
+      await dispute
+        .connect(server)
+        .createDisputeByServer(customer.address, merchant.address, true, erc721.address, 1, 20, [
+          arbiter1.address,
+          arbiter2.address,
+          arbiter3.address,
+        ])
+    ).wait(1);
+
     disputes = await dispute.getAllDisputes();
 
-    expect(disputes.length).to.eq(1);
+    expect(disputes.length).to.eq(2);
   });
 
   it("Non Arbiter tries to call castVote Function [FAIL]", async () => {
@@ -295,6 +306,11 @@ describe("Scenario Flow", () => {
       await dispute.connect(server).castVotesWithSignatures(0, _sigs, _msgs)
     ).wait(1);
 
+    // Parallel Dispute which hasClaim would be toggled to true
+    await (
+      await dispute.connect(server).castVotesWithSignatures(1, [..._sigs, votes[3].signature], [..._msgs, votes[3].choice])
+    ).wait(1);
+
     _dispute = await dispute.getDisputeByIndex(0);
     expect(_dispute.voteCount).to.equal(3);
   });
@@ -333,77 +349,26 @@ describe("Scenario Flow", () => {
     const _dispute = await dispute.getDisputeByIndex(0);
 
     expect(_dispute.state).to.equal(1); // Closed
+
+    // Dispute Index 1, turn on hasClaim
+    await (
+      await dispute.connect(server).finalizeDispute(1, false, wei("1"))
+    ).wait(1);
   });
 
-  describe("Winner or Sever should be able to call claim function", () => {
-    it("should fail when isAuto is off", async () => {
-      await expect(dispute.connect(server).claim(0)).to.be.revertedWith(
-        "Can't claim funds"
-      );
-    });
+  it("CLAIM: should fail if hasClaim was off when finalize was called", async () => {
+    await expect(dispute.connect(server).claim(0)).to.be.revertedWith(
+      "Already Claimed"
+    );
+  });
 
-    it("should succeed when isAuto is on", async () => {
-      await dispute.connect(server).toggleAuto(0);
+  it("CLAIM: should succeed if hasClaim was on when finalize was called", async () => {
+    // Transfer funds to Dispute App
+    await mock.connect(deployer).transfer(dispute.address, wei("1000"));
 
-      await expect(dispute.connect(server).claim(0)).to.be.revertedWith(
-        "ERC20: transfer amount exceeds balance"
-      );
-
-      // Transfer funds to Dispute App
-      await mock.connect(deployer).transfer(dispute.address, wei("1000"));
-
-      const _dispute = await dispute.getDisputeByIndex(0);
-
-      // const dollarValue = _dispute.usdValue;
-      const received = _dispute.tokenValue;
-      const winner = _dispute.winner;
-
-      // console.log("Dollar: $", +dollarValue, "Received: ", +received);
-
-      if (winner === 1) {
-        // console.log("Sending to Server");
-  
-        const serverOldBalance = await mock.balanceOf(server.address);
-  
-        await expect(dispute.connect(merchant).claim(0)).to.be.revertedWith(
-          "Only SideA or Server can claim"
-        );
-  
-        await expect(dispute.connect(server).claim(0))
-          .to.emit(mock, "Transfer")
-          .withArgs(dispute.address, server.address, received);
-  
-        const serverNewBalance = await mock.balanceOf(server.address);
-        expect(serverNewBalance).to.eq(serverOldBalance + received);
-      } else if (winner === 2) {
-        // console.log("Sending to Merchant");
-  
-        const merchantOldBalance = await mock.balanceOf(merchant.address);
-  
-        await expect(dispute.connect(customer).claim(0)).to.be.revertedWith(
-          "Only SideB or Server can claim"
-        );
-  
-        await expect(dispute.connect(merchant).claim(0))
-          .to.emit(mock, "Transfer")
-          .withArgs(dispute.address, merchant.address, received);
-  
-        const merchantNewBalance = await mock.balanceOf(merchant.address);
-        expect(merchantNewBalance).to.eq(merchantOldBalance + received);
-      } else {
-        throw new Error("Winner is not set");
-      }
-
-      const deets = await dispute.getDisputeByIndex(0);
-      expect(deets.state).to.eq(1); // CLOSED
-
-      await expect(
-        dispute.connect(arbiter1).castVote(0, true)
-      ).to.be.revertedWith(`dispute is closed`);
-
-      await expect(dispute.connect(server).claim(0)).to.be.revertedWith(
-        "Already Claimed"
-      );
-    });
+    const oldBalance = await mock.balanceOf(server.address);
+    await dispute.connect(server).claim(1);
+    const newBalance = await mock.balanceOf(server.address);
+    expect(+newBalance).to.eq(+oldBalance + +newBalance);
   });
 });

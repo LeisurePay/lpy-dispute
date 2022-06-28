@@ -45,7 +45,16 @@ describe("Dispute Flow", () => {
         arbiter1.address,
         arbiter1.address
       ]), "Duplicate keys");
+
     await dispute
+      .connect(server)
+      .createDisputeByServer(customer.address, merchant.address, false, erc721.address, 1, 20, [
+        arbiter1.address,
+        arbiter2.address,
+        arbiter3.address,
+      ]);
+
+      await dispute
       .connect(server)
       .createDisputeByServer(customer.address, merchant.address, false, erc721.address, 1, 20, [
         arbiter1.address,
@@ -55,58 +64,58 @@ describe("Dispute Flow", () => {
 
     disputes = await dispute.getAllDisputes();
 
-    expect(disputes.length).to.eq(1);
+    expect(disputes.length).to.eq(2);
   });
 
   it("toggle can only be called by accounts with DEFAULT_ADMIN_ROLE or SERVER_ROLE", async () => {
-    const { isAuto } = await dispute.getDisputeByIndex(0);
-    await expect(dispute.connect(customer).toggleAuto(0)).to.be.revertedWith(
+    const { hasClaim } = await dispute.getDisputeByIndex(1);
+    await expect(dispute.connect(customer).toggleHasClaim(1)).to.be.revertedWith(
       "Only Admin or Server Allowed"
     );
-    await dispute.connect(deployer).toggleAuto(0);
-    const { isAuto: newAuto } = await dispute.getDisputeByIndex(0);
-    expect(newAuto).to.equal(!isAuto);
-
-    await dispute.connect(deployer).toggleAuto(0);
+    await dispute.connect(deployer).toggleHasClaim(1);
+    const { hasClaim: newHasClaim } = await dispute.getDisputeByIndex(1);
+    expect(newHasClaim).to.equal(!hasClaim);
   });
 
   it("castVote Function", async () => {
-    const index = 0;
+    const disputes = await dispute.getAllDisputes();
 
-    await expect(
-      dispute.connect(customer).castVote(index, true)
-    ).to.be.revertedWith("Not an arbiter");
+    for (let i = 0; i < disputes.length; i++) {
+      await expect(
+        dispute.connect(customer).castVote(i, true)
+      ).to.be.revertedWith("Not an arbiter");
 
-    await dispute.connect(arbiter1).castVote(index, true);
+      await dispute.connect(arbiter1).castVote(i, true);
 
-    await dispute.connect(arbiter2).castVote(index, true);
+      await dispute.connect(arbiter2).castVote(i, true);
 
-    await dispute.connect(arbiter3).castVote(index, false);
+      await dispute.connect(arbiter3).castVote(i, false);
 
-    await expect(
-      dispute.connect(arbiter1).castVote(index, true)
-    ).to.be.revertedWith("Already Voted");
+      await expect(
+        dispute.connect(arbiter1).castVote(i, true)
+      ).to.be.revertedWith("Already Voted");
 
-    const details = await dispute.getDisputeByIndex(index);
-    let votes = 0;
-    for (let i = 0; i < details.arbiters.length; i++) {
-      const element = details.arbiters[i];
-      votes += element.voted ? 1 : 0;
+      const details = await dispute.getDisputeByIndex(i);
+      let votes = 0;
+      for (let j = 0; j < details.arbiters.length; j++) {
+        const element = details.arbiters[j];
+        votes += element.voted ? 1 : 0;
+      }
+
+      expect(votes).to.eq(details.voteCount);
     }
-
-    expect(votes).to.eq(details.voteCount);
   });
 
   it("finalizeDispute Function", async () => {
-    const index = 0;
+    await dispute.connect(server).finalizeDispute(0, false, wei("1"));
 
-    await dispute.connect(server).finalizeDispute(index, false, wei("1"));
-
-    await expect(dispute.connect(server).claim(index)).to.be.revertedWith(
-      "Can't claim funds"
+    await expect(dispute.connect(server).claim(0)).to.be.revertedWith(
+      "Already Claimed"
     );
 
-    await dispute.connect(server).toggleAuto(index);
+    const index = 1; // Dispute hasClaim == TRUE
+
+    await dispute.connect(server).finalizeDispute(index, false, wei("1"));
 
     await expect(dispute.connect(server).claim(index)).to.be.revertedWith(
       "ERC20: transfer amount exceeds balance"
