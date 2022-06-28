@@ -17,13 +17,14 @@ describe("Scenario Flow", () => {
     arbiter4,
   ] = Array(8).fill(null);
   const votes = [{}];
+  const votes2 = [{}];
   const CHOICES = ["A", "B"];
 
   const wei = ethers.utils.parseEther;
 
-  const makeChoice = () => {
+  const makeChoice = (index) => {
     const choice = CHOICES[Math.floor(Math.random() * CHOICES.length)];
-    return choice;
+    return `${index}${choice}`;
   };
 
   beforeEach(async () => {
@@ -266,7 +267,7 @@ describe("Scenario Flow", () => {
     for (let i = 0; i < signers.length; i++) {
       const arbiterSigner = signers[i];
 
-      const choice = makeChoice();
+      const choice = makeChoice(0);
       const address = arbiterSigner.address;
 
       const messageHash = ethers.utils.id(choice);
@@ -274,6 +275,23 @@ describe("Scenario Flow", () => {
       const signature = await arbiterSigner.signMessage(messageHashBytes);
 
       votes[i] = {
+        choice,
+        address,
+        signature,
+      };
+    }
+
+    for (let i = 0; i < signers.length; i++) {
+      const arbiterSigner = signers[i];
+
+      const choice = makeChoice(1);
+      const address = arbiterSigner.address;
+
+      const messageHash = ethers.utils.id(choice);
+      const messageHashBytes = ethers.utils.arrayify(messageHash);
+      const signature = await arbiterSigner.signMessage(messageHashBytes);
+
+      votes2[i] = {
         choice,
         address,
         signature,
@@ -321,8 +339,15 @@ describe("Scenario Flow", () => {
     ).wait(1);
 
     // Parallel Dispute which hasClaim would be toggled to true
+    const _msgs2 = [];
+    const _sigs2 = [];
+
+    for (let i = 0; i < 4; i++) {
+      _msgs2.push(votes2[i].choice);
+      _sigs2.push(votes2[i].signature);
+    }
     await (
-      await dispute.connect(server).castVotesWithSignatures(1, [..._sigs, votes[3].signature], [..._msgs, votes[3].choice])
+      await dispute.connect(server).castVotesWithSignatures(1, _sigs2, _msgs2)
     ).wait(1);
 
     _dispute = await dispute.getDisputeByIndex(0);
@@ -364,7 +389,7 @@ describe("Scenario Flow", () => {
 
     expect(_dispute.state).to.equal(1); // Closed
 
-    // Dispute Index 1, turn on hasClaim
+    // Dispute Index 1
     await (
       await dispute.connect(server).finalizeDispute(1, false, wei("1"))
     ).wait(1);

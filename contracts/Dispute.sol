@@ -15,6 +15,7 @@ import "./IterableArbiters.sol";
 contract DisputeContract is AccessControlEnumerable {
     using IterableArbiters for IterableArbiters.Map;
     using ECDSA for bytes32;
+    using Strings for uint256;
 
     enum State {
         Open,
@@ -73,9 +74,6 @@ contract DisputeContract is AccessControlEnumerable {
     mapping(address => uint256[]) public disputeIndexesAsSideB;
 
     IERC20 private lpy;
-
-    bytes32 public constant VOTE_A = keccak256(bytes("A"));
-    bytes32 public constant VOTE_B = keccak256(bytes("B"));
 
     // ROLES
     bytes32 public constant SERVER_ROLE = bytes32("SERVER_ROLE");
@@ -214,17 +212,20 @@ contract DisputeContract is AccessControlEnumerable {
         return true;
     }
 
-    function _getSignerAddress(string memory _msg, bytes memory _sig)
+    function _getSignerAddress(uint256 id, string memory _msg, bytes memory _sig)
         internal
         pure
         returns (address, bool)
     {
+        bytes32 voteA = keccak256(abi.encodePacked(id.toString(),"A"));
+        bytes32 voteB = keccak256(abi.encodePacked(id.toString(),"B"));
+
         bytes32 hashMsg = keccak256(bytes(_msg));
 
-        if (hashMsg == VOTE_A || hashMsg == VOTE_B) {
+        if (hashMsg == voteA || hashMsg == voteB) {
             return (
                 hashMsg.toEthSignedMessageHash().recover(_sig),
-                hashMsg == VOTE_A
+                hashMsg == voteA
             );
         }
         return (address(0), true);
@@ -281,6 +282,7 @@ contract DisputeContract is AccessControlEnumerable {
 
         for (uint256 i = 0; i < _sigs.length; i++) {
             (address signer, bool agree) = _getSignerAddress(
+                index,
                 _msgs[i],
                 _sigs[i]
             );
