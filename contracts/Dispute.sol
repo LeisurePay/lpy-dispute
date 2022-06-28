@@ -139,8 +139,10 @@ contract DisputeContract is AccessControlEnumerable {
 
         Dispute storage dispute = disputes[disputeID];
 
+        // Confirm tokenID is already minted
+        IERC721Extended(_nftAddr).tokenURI(txID);
+
         dispute.disputeID = disputeID;
-        dispute._nft = NFT(_nftAddr, txID);
         dispute.sideA = _sideA;
         dispute.sideB = _sideB;
         dispute.hasClaim = _hasClaim;
@@ -315,7 +317,7 @@ contract DisputeContract is AccessControlEnumerable {
     {
         Dispute storage _dispute = disputes[index];
 
-        require(!_dispute.arbiters.contains(_arbiter), "Not an arbiter");
+        require(!_dispute.arbiters.contains(_arbiter), "Already an Arbiter");
         require(_dispute.state == State.Open, "dispute is closed");
 
         _dispute.arbiters.set(_arbiter, IterableArbiters.UserVote(_arbiter, false, false));

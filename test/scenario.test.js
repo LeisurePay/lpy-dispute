@@ -67,7 +67,21 @@ describe("Scenario Flow", () => {
       dispute.connect(server).createDisputeByServer(customer.address, merchant.address, false, erc721.address, 1, 20, [
         arbiter1.address,
         arbiter1.address
-      ]), "Duplicate keys");
+      ])).to.be.revertedWith("Duplicate Keys");
+
+    disputes = await dispute.getAllDisputes();
+
+    expect(disputes.length).to.eq(0);
+  });
+
+  it("Server Creates Dispute (Non Existing NFT) [FAIL]", async () => {
+    let disputes = await dispute.getAllDisputes();
+    expect(disputes.length).to.eq(0);
+
+    await expect(
+      dispute.connect(server).createDisputeByServer(customer.address, merchant.address, false, erc721.address, 110, 20, [
+        arbiter1.address,
+      ])).to.be.revertedWith("ERC721URIStorage: URI query for nonexistent token")
 
     disputes = await dispute.getAllDisputes();
 
@@ -191,7 +205,7 @@ describe("Scenario Flow", () => {
       const element = details.arbiters[i];
       iVotes += element.voted ? 1 : 0;
     }
-    
+
     expect(details.voteCount).to.eq(4);
     expect(iVotes).to.eq(details.voteCount);
   });
