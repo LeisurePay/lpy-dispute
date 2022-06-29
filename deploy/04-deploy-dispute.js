@@ -31,11 +31,11 @@ const deployDispute = async (hre) => {
     !developmentChains.includes(network.name) &&
     process.env.ETHERSCAN_API_KEY
   ) {
-    await verify(
-      dispute.address,
-      args,
-      "contracts/Dispute.sol:DisputeContract",
-    );
+    // await verify(
+    //   dispute.address,
+    //   args,
+    //   "contracts/Dispute.sol:DisputeContract",
+    // );
   }
 };
 

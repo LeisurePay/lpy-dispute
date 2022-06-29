@@ -25,7 +25,7 @@ const deployLib = async (hre) => {
     !developmentChains.includes(network.name) &&
     process.env.ETHERSCAN_API_KEY
   ) {
-    await verify(lib.address, args, "contracts/IterableArbiters.sol:IterableArbiters");
+    // await verify(lib.address, args, "contracts/IterableArbiters.sol:IterableArbiters");
   }
 };
 

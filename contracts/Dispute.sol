@@ -191,7 +191,6 @@ contract DisputeContract is AccessControlEnumerable {
     ) internal returns (bool) {
         Dispute storage dispute = disputes[index];
         require(dispute.voteCount == dispute.arbiters.size(), "Votes not completed");
-
         require(dispute.state == State.Open, "dispute is closed");
 
         dispute.tokenValue = dispute.usdValue * ratioValue;

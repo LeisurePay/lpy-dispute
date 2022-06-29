@@ -1,5 +1,9 @@
 /* eslint-disable node/no-unpublished-require */
-const { verify, networkConfig, developmentChains } = require("../helpers");
+const {
+  // verify,
+  networkConfig,
+  developmentChains,
+} = require("../helpers");
 
 const deployMockERC20 = async (hre) => {
   // @ts-ignore
@@ -25,7 +29,7 @@ const deployMockERC20 = async (hre) => {
     !developmentChains.includes(network.name) &&
     process.env.ETHERSCAN_API_KEY
   ) {
-    await verify(mockerc20.address, args, "contracts/MockERC20.sol:MockERC20");
+    // await verify(mockerc20.address, args, "contracts/MockERC20.sol:MockERC20");
   }
 };
 

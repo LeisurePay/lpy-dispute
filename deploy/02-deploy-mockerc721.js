@@ -25,11 +25,11 @@ const deployMockERC721 = async (hre) => {
     !developmentChains.includes(network.name) &&
     process.env.ETHERSCAN_API_KEY
   ) {
-    await verify(
-      mockerc721.address,
-      args,
-      "contracts/MockERC721.sol:MockERC721"
-    );
+    // await verify(
+    //   mockerc721.address,
+    //   args,
+    //   "contracts/MockERC721.sol:MockERC721"
+    // );
   }
 };
 
