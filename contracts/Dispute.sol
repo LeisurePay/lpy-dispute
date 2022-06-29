@@ -19,7 +19,8 @@ contract DisputeContract is AccessControlEnumerable {
 
     enum State {
         Open,
-        Closed
+        Closed,
+        Canceled
     }
 
     enum PARTIES {
@@ -114,6 +115,9 @@ contract DisputeContract is AccessControlEnumerable {
         uint256 sideBVotes,
         PARTIES winner
     );
+
+
+    event DisputeCancelled(uint256 indexed disputeIndex);
 
     event DisputeFundClaimed(
         uint256 indexed disputeIndex,
@@ -268,6 +272,15 @@ contract DisputeContract is AccessControlEnumerable {
         dispute.arbiters.set(msg.sender, vote);
 
         return true;
+    }
+
+    function cancelDispute(uint256 index) external onlyRole(SERVER_ROLE){
+        Dispute storage dispute = disputes[index];
+
+        require(dispute.state == State.Open, "dispute is closed");
+        dispute.state = State.Canceled;
+
+        emit DisputeCancelled(index);
     }
 
     function castVotesWithSignatures(
