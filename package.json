@@ -1,7 +1,7 @@
 {
-  "name": "lpy-governance",
+  "name": "lpy-dispute",
   "version": "1.0.0",
-  "description": "Leisure Pay's Governance Contract",
+  "description": "Leisure Pay's Dispute Contract",
   "scripts": {
     "lint": "solhint 'contracts/*.sol'",
     "lint:fix": "solhint 'contracts/**/*.sol' --fix",
@@ -12,7 +12,7 @@
   "keywords": [
     "Leisure Pay"
   ],
-  "author": "Isaac Frank",
+  "author": "IsaacFrank@LeisurePaya",
   "license": "ISC",
   "devDependencies": {
     "@nomiclabs/hardhat-ethers": "npm:hardhat-deploy-ethers@0.3.0-beta.12",
