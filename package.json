@@ -7,7 +7,8 @@
     "lint:fix": "solhint 'contracts/**/*.sol' --fix",
     "format": "yarn prettier --write .",
     "typechain": "yarn hardhat typechain",
-    "ci:clean": "rm -rf ./artifacts ./cache .;types"
+    "ci:clean": "rm -rf ./artifacts ./cache .;types",
+    "prepare": "husky install"
   },
   "keywords": [
     "Leisure Pay"
@@ -37,11 +38,12 @@
     "hardhat-deploy": "^0.10.4",
     "prettier": "^2.6.2",
     "prettier-plugin-solidity": "^1.0.0-beta.13",
+    "solc": "^0.8.15",
     "solhint": "^3.3.7",
     "solhint-plugin-prettier": "^0.0.5",
     "solidity-coverage": "^0.7.21",
-    "solc": "^0.8.15",
-    "solidity-docgen": "^0.6.0-beta.17"
+    "solidity-docgen": "^0.6.0-beta.17",
+    "husky": "^8.0.1"
   },
   "engines": {
     "node": ">=14.0.0"
