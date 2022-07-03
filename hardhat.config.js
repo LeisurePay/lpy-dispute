@@ -4,6 +4,8 @@ require("@nomiclabs/hardhat-etherscan");
 require("@nomiclabs/hardhat-ethers");
 require("hardhat-deploy");
 require("solidity-coverage");
+require("solidity-docgen");
+
 const fs = require("fs");
 const path = require("path");
 const { eth, bsc } = require("./helpers/apiKeys");
@@ -17,6 +19,9 @@ const getKeys = (keyName) => {
 };
 
 module.exports = {
+  docgen: {
+    pages: "files",
+  },
   defaultNetwork: "hardhat",
   networks: {
     hardhat: {

@@ -20,6 +20,7 @@
     "@nomiclabs/hardhat-waffle": "^2.0.3",
     "@openzeppelin/contracts": "^4.4.2",
     "chai": "^4.3.6",
+    "cross-env": "^7.0.2",
     "dotenv": "^10.0.0",
     "eslint": "^7.32.0",
     "eslint-config-prettier": "^8.5.0",
@@ -30,16 +31,17 @@
     "eslint-plugin-promise": "^5.2.0",
     "ethereum-waffle": "^3.4.4",
     "ethers": "^5.6.4",
+    "fs": "^0.0.1-security",
+    "fs-extra": "^10.0.0",
     "hardhat": "^2.9.3",
+    "hardhat-deploy": "^0.10.4",
     "prettier": "^2.6.2",
     "prettier-plugin-solidity": "^1.0.0-beta.13",
     "solhint": "^3.3.7",
+    "solhint-plugin-prettier": "^0.0.5",
     "solidity-coverage": "^0.7.21",
-    "cross-env": "^7.0.2",
-    "fs": "^0.0.1-security",
-    "fs-extra": "^10.0.0",
-    "hardhat-deploy": "^0.10.4",
-    "solhint-plugin-prettier": "^0.0.5"
+    "solc": "^0.8.15",
+    "solidity-docgen": "^0.6.0-beta.17"
   },
   "engines": {
     "node": ">=14.0.0"
