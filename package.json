@@ -6,14 +6,13 @@
     "lint": "solhint 'contracts/*.sol'",
     "lint:fix": "solhint 'contracts/**/*.sol' --fix",
     "format": "yarn prettier --write .",
-    "typechain": "yarn hardhat typechain",
-    "ci:clean": "rm -rf ./artifacts ./cache .;types",
+    "ci:clean": "rm -rf ./artifacts ./cache",
     "prepare": "husky install"
   },
   "keywords": [
-    "Leisure Pay"
+    "Leisure Pay", "Dispute", "LPY"
   ],
-  "author": "IsaacFrank@LeisurePaya",
+  "author": "LeisurePay",
   "license": "ISC",
   "devDependencies": {
     "@nomiclabs/hardhat-ethers": "npm:hardhat-deploy-ethers@0.3.0-beta.12",
