@@ -9,27 +9,19 @@ const deployMockERC721 = async (hre) => {
 
   const args = ["https://based.com/"];
 
-  log("----------------------------------------------------");
-  log("Deploying MockToken and waiting for confirmations...");
+  log("Deploying MockNFT and waiting for confirmations...");
+  const networkName = networkConfig[network.name] ? network.name : "default";
   const mockerc721 = await deploy("MockERC721", {
     from: deployer,
     log: true,
     args,
-    // we need to wait if on a live network so we can verify properly
-    waitConfirmations: networkConfig[network.name]
-      ? networkConfig[network.name].blockConfirmations
-      : 1,
+    waitConfirmations: networkConfig[networkName].blockConfirmations,
   });
   log(`MockToken at ${mockerc721.address}`);
   if (
-    !developmentChains.includes(network.name) &&
-    process.env.ETHERSCAN_API_KEY
+    !developmentChains.includes(network.name) && Boolean(+process.env.SHOULD_VERIFY)
   ) {
-    // await verify(
-    //   mockerc721.address,
-    //   args,
-    //   "contracts/MockERC721.sol:MockERC721"
-    // );
+    await verify(mockerc721.address, args, "contracts/MockERC721.sol:MockERC721");
   }
 };
 

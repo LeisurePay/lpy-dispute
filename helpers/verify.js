@@ -1,8 +1,8 @@
 /* eslint-disable node/no-unpublished-require */
 const { run } = require("hardhat");
 
-const verify = async (contractAddress, args, contract) => {
-  console.log("Verifying contract...");
+const verify = async (contractAddress="", args=[], contract="") => {
+  console.log("Verifying ", contract);
   try {
     await run("verify:verify", {
       address: contractAddress,

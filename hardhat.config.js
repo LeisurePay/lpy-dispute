@@ -8,7 +8,7 @@ require("solidity-docgen");
 
 const fs = require("fs");
 const path = require("path");
-const { eth, bsc } = require("./helpers/apiKeys");
+const { bsc } = require("./helpers/apiKeys");
 
 let keys = {};
 if (fs.existsSync(path.resolve(__dirname, "keys.json"))) {
@@ -70,7 +70,6 @@ module.exports = {
   },
   etherscan: {
     apiKey: {
-      ...eth,
       ...bsc,
     },
   },

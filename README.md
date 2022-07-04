@@ -6,11 +6,13 @@ A Repo responsible for creating and handling disputes on chain
 
 ## SET UP
 
-To  set up the project for testing and deployment:
+To  set up the project for testing and deployment(+ verification):
 
 1. Simply run `yarn` to install dependencies
 
 2. Duplicate `keys.example.json` and rename to `keys.json`, for the mainnet and testnet, provide list of private keys OR if you want to use a seedphrase instead, duplicate `.env.example`, rename to `.env`, your `BSCSCAN_API_KEY` should be the API key gotten from <https://bscscan.com> which would be used for contract verification while the `PRIVATE_KEY` should equal your account seed phrase.
+
+3. `SHOULD_VERIFY` field in the `.env` file let's the deployment script know if it should verify a contract or not; `0` == `false`, contracts won't be verified, `1` == `true`, contracts would be verified after deployment
 
 ## Compiling
 
