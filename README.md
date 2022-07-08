@@ -22,9 +22,30 @@ To compile the contracts, simply run `npx hardhat compile`
 
 To deploy the contracts, simply run `npx hardhat deploy --network <network-name>` e.g:  `npx hardhat deploy --network bsc_test`, you can find list of networks for this repo in the `hardhat.config.js` file.
 
-This is a hardhat task that deploys the contracts using the script files in the `deploy` sub-folder.
+This is a hardhat task that deploys the contracts using the script files in the `deploy` folder.
 
 The deployment is from top to bottom, based on the order of the files in the folder.
+
+In the likely case where some contracts are already deployed, you can let the script know by editing the config file `./helpers/config.js` and adding the deployed contract address to the `contract` object.
+
+MockERC20 was deployed off chain on the testnet, so you can add the address to the `contract` object in the `config.js` file. E.G:
+
+```js
+bsc_test: {
+    Dispute: { address: "" },
+    IterableArbiters: { address: "" },
+    MockERC20: { address: "0x55d398326f99059ff775485246999027b3197955" },
+    MockERC721: { address: "" },
+},
+bsc_main: {
+    Dispute: { address: "" },
+    IterableArbiters: { address: "" },
+    MockERC20: { address: "" },
+    MockERC721: { address: "" },
+},
+```
+
+With this, the deploy script would pick up the address instead of redeploying the contract
 
 ## Testing
 

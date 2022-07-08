@@ -12,5 +12,3 @@ deployments
 keys.json
 yarn.lock
 package-lock.json
-
-.vscode
