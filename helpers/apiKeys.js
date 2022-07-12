@@ -1,8 +1,10 @@
 const BSC_API = process.env.BSCSCAN_API_KEY;
 
-const bsc = {
-  bsc: BSC_API,
-  bscTestnet: BSC_API,
+const ApiKeys = {
+  bsc: {
+    bsc: BSC_API,
+    bscTestnet: BSC_API,
+  },
 };
 
-module.exports = { bsc };
+module.exports = ApiKeys;
