@@ -77,3 +77,25 @@ Where `<network-name>` can be any of the following
     "bsc_main" : "The Binance Main Network",
 }
 ```
+
+## Dispute Contract Order of Operation
+
+**NOTE: Every step is linked to it's specific function documentation**
+
+Step 1: [Create a Dispute](./docs/Dispute.md#createdisputebyserver) - Keep note of the dispute ID from the event log
+
+Step 2: You can [add an arbiter](./docs/Dispute.md#addarbiter) or [remove an arbiter](./docs/Dispute.md#removearbiter)
+
+Step 3: If there's an error about who sideA or sideB is on dispute creation, you can [update sideA](./docs/Dispute.md#updatesidea) or [update sideB](./docs/Dispute.md#updatesideb)
+
+Step 4: If you decide to stop a dispute, you can [Cancel a Dispute](./docs/Dispute.md#canceldispute)
+
+Step 5: Arbiters vote by signing a message `("disputeID + A|B")` and submits this signature to the server.
+
+Step 6: The server can send the signatures along with the messages signed to the contract by calling [Casting Votes](./docs/Dispute.md#castvoteswithsignatures)
+
+Step 7: Before finalizing the dispute, the server needs to determine if the resolution payment would be onChain(LPY) or off chain(probably fiat currency), this is done by calling by updating the `hasClaim` field of the dispute, this is done by calling [toggleHasClaim Function](./docs/Dispute.md#togglehasclaim)
+
+Step 8: The server can finalize the dispute by calling [Finalize Dispute](./docs/Dispute.md#finalizedispute) and passing who is the winner of the dispute.
+
+Step 9: If `hasClaim` was true when dispute was finalized, the winner or server can call the [Claim Function](./docs/Dispute.md#claim) to claim the amount at stake **ELSE:** the SERVER would discuss with the winner on how to send payment over to them.
