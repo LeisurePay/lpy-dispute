@@ -249,6 +249,7 @@ contract DisputeContract is AccessControlEnumerable {
         IERC721Extended(_nftAddr).tokenURI(txID);
 
         dispute.disputeID = disputeID;
+        dispute._nft = NFT(_nftAddr, txID);
         dispute.sideA = _sideA;
         dispute.sideB = _sideB;
         dispute.hasClaim = _hasClaim;
