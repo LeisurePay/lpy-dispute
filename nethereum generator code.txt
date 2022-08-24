@@ -1,0 +1,2 @@
+dotnet tool install -g Nethereum.Generator.Console
+Nethereum.Generator.Console.exe generate from-abi -abi ./artifacts/contracts/Dispute.sol/DisputeContract.abi -o . -ns Solidity
