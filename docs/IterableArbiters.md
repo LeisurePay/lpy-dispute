@@ -17,9 +17,9 @@ struct UserVote {
 ```solidity
 struct Map {
   address[] keys;
-  mapping(address => struct IterableArbiters.UserVote) values;
-  mapping(address => uint256) indexOf;
-  mapping(address => bool) inserted;
+  mapping(address &#x3D;&gt; struct IterableArbiters.UserVote) values;
+  mapping(address &#x3D;&gt; uint256) indexOf;
+  mapping(address &#x3D;&gt; bool) inserted;
 }
 ```
 

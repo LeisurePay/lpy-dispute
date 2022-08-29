@@ -1,5 +1,6 @@
 const { ethers } = require("hardhat");
 const { expect } = require("chai");
+const { constants } = require("ethers");
 
 describe("Dispute Flow", () => {
   let dispute;
@@ -65,6 +66,14 @@ describe("Dispute Flow", () => {
     disputes = await dispute.getAllDisputes();
 
     expect(disputes.length).to.eq(2);
+  });
+
+  it("Created Dispute NFT Field shouldn't be empty", async () => {
+    const disputes = await dispute.getAllDisputes();
+    const _dispute = disputes[0];
+    expect(_dispute._nft._nft).to.not.eq(constants.AddressZero);
+    expect(_dispute._nft._nft).to.eq(erc721.address);
+    expect(_dispute._nft._id).to.eq(1);
   });
 
   it("toggle can only be called by accounts with DEFAULT_ADMIN_ROLE or SERVER_ROLE", async () => {
