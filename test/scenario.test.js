@@ -322,11 +322,11 @@ describe("Scenario Flow", () => {
     expect(_dispute.voteCount).to.equal(0);
   });
 
-  it("Server submits 3 signed votes without duplicates [SUCCESS] ", async () => {
+  it("Server submits 2 signed votes without duplicates [SUCCESS] ", async () => {
     const _msgs = [];
     const _sigs = [];
 
-    for (let i = 0; i < 3; i++) {
+    for (let i = 0; i < 2; i++) {
       _msgs.push(votes[i].choice);
       _sigs.push(votes[i].signature);
     }
@@ -351,7 +351,33 @@ describe("Scenario Flow", () => {
     ).wait(1);
 
     _dispute = await dispute.getDisputeByIndex(0);
-    expect(_dispute.voteCount).to.equal(3);
+    expect(_dispute.voteCount).to.equal(2);
+  });
+
+  it("Server submits all invalid signed votes [FAIL] ", async () => {
+    const _msgs = [];
+    const _sigs = [];
+
+    for (let i = 2; i < 3; i++) {
+      _msgs.push("Yoooo Invalid");
+      _sigs.push(votes[i].signature);
+    }
+    await expect(
+      dispute.connect(server).castVotesWithSignatures(0, _sigs, _msgs)
+    ).to.be.revertedWith("No votes to cast");
+  });
+
+  it("Server submits x valid signed votes but one or more invalid votes [SUCCESS] ", async () => {
+    const _msgs = [];
+    const _sigs = [];
+
+    for (let i = 2; i < 4; i++) {
+      let msg = votes[i].choice;
+      if (i === 3) msg = "Yoooo Invalid";
+      _msgs.push(msg);
+      _sigs.push(votes[i].signature);
+    }
+    await dispute.connect(server).castVotesWithSignatures(0, _sigs, _msgs)
   });
 
   it("Server should call finalizeDispute function [FAIL : not all Arbiter voted]", async () => {

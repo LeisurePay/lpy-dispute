@@ -326,7 +326,7 @@ contract DisputeContract is AccessControlEnumerable {
 
         require(_sigs.length == _msgs.length, "sigs and msg != same length");
         require(dispute.state == State.Open, "dispute is closed");
-
+        bool voteCasted;
         for (uint256 i = 0; i < _sigs.length; i++) {
             (address signer, bool agree) = _getSignerAddress(
                 index,
@@ -346,9 +346,10 @@ contract DisputeContract is AccessControlEnumerable {
             dispute.against += agree ? 0 : 1;
 
             dispute.arbiters.set(signer, vote);
-
+            if(!voteCasted)
+                voteCasted = true;
         }
-
+        require(voteCasted, "No votes to cast");
         return true;
     }
 
