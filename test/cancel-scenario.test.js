@@ -158,9 +158,9 @@ describe("Cancel Scenario Flow", () => {
     expect(_dispute.voteCount).to.equal(0);
   });
 
-  it("Server should call finalizeDispute function [FAIL : not all Arbiter voted]", async () => {
+  it("Server should call finalizeDispute function [FAIL : Dispute's canceled]", async () => {
     await expect(
       dispute.connect(server).finalizeDispute(0, false, wei("1"))
-    ).to.be.revertedWith("Votes not completed");
+    ).to.be.revertedWith("dispute is closed");
   });
 });

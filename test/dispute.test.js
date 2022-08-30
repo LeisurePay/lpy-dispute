@@ -76,7 +76,7 @@ describe("Dispute Flow", () => {
     expect(_dispute._nft._id).to.eq(1);
   });
 
-  it("toggle can only be called by accounts with DEFAULT_ADMIN_ROLE or SERVER_ROLE", async () => {
+  it("toggleHasClaim can only be called by accounts with DEFAULT_ADMIN_ROLE or SERVER_ROLE", async () => {
     const { hasClaim } = await dispute.getDisputeByIndex(1);
     await expect(dispute.connect(customer).toggleHasClaim(1)).to.be.revertedWith(
       "Only Admin or Server Allowed"
@@ -86,7 +86,7 @@ describe("Dispute Flow", () => {
     expect(newHasClaim).to.equal(!hasClaim);
   });
 
-  it("castVote Function", async () => {
+  it("castVote Function works only for arbiters who haven't already voted", async () => {
     const disputes = await dispute.getAllDisputes();
 
     for (let i = 0; i < disputes.length; i++) {
@@ -115,7 +115,8 @@ describe("Dispute Flow", () => {
     }
   });
 
-  it("finalizeDispute Function", async () => {
+  it("finalizeDispute Function works as expected", async () => {
+    await expect(dispute.connect(arbiter1).finalizeDispute(0, false, wei("1"))).to.be.reverted;
     await dispute.connect(server).finalizeDispute(0, false, wei("1"));
 
     await expect(dispute.connect(server).claim(0)).to.be.revertedWith(

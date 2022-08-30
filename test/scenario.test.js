@@ -211,7 +211,7 @@ describe("Scenario Flow", () => {
     expect(iVotes).to.eq(details.voteCount);
   });
 
-  it("Server removes All Arbiters + votes [SUCCESS]", async () => {
+  it("Server removes All Arbiters + votes (vote counts equal 0) [SUCCESS]", async () => {
     let _dispute = await dispute.getDisputeByIndex(0);
     let voteCount = _dispute.voteCount;
 
@@ -238,7 +238,7 @@ describe("Scenario Flow", () => {
     expect(voteCount).to.eq(0);
   });
 
-  it("Server adds all arbiters", async () => {
+  it("Server adds all arbiters (voteCount remains zero)", async () => {
     let _dispute = await dispute.getDisputeByIndex(0);
 
     expect(_dispute.arbiters.length).to.eq(0);
@@ -257,8 +257,10 @@ describe("Scenario Flow", () => {
     ).wait(1);
 
     _dispute = await dispute.getDisputeByIndex(0);
+    const voteCount = _dispute.voteCount;
 
     expect(_dispute.arbiters.length).to.eq(4);
+    expect(voteCount).to.eq(0);
   });
 
   it("Arbiters sign Votes", async () => {

@@ -366,8 +366,8 @@ contract DisputeContract is AccessControlEnumerable {
     ) external onlyRole(SERVER_ROLE) returns (bool) {
         
         Dispute storage dispute = disputes[index];
-        require(dispute.voteCount == dispute.arbiters.size(), "Votes not completed");
         require(dispute.state == State.Open, "dispute is closed");
+        require(dispute.voteCount == dispute.arbiters.size(), "Votes not completed");
 
         dispute.tokenValue = dispute.usdValue * ratio;
 
