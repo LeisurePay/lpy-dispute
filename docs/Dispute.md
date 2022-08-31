@@ -241,6 +241,45 @@ Event emitted when a sideB is modified
 | oldSideB | address | Previous SideB Address |
 | newSideB | address | New SideB Address |
 
+### ArbiterAdded
+
+```solidity
+event ArbiterAdded(uint256 disputeIndex, address arbiter)
+```
+
+Event emitted when an arbiter is added to dispute
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| disputeIndex | uint256 | Dispute ID |
+| arbiter | address | Arbiter added |
+
+### ArbiterRemoved
+
+```solidity
+event ArbiterRemoved(uint256 disputeIndex, address arbiter)
+```
+
+Event emitted when an arbiter is removed to dispute
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| disputeIndex | uint256 | Dispute ID |
+| arbiter | address | Arbiter removed |
+
+### ToggledHasClaim
+
+```solidity
+event ToggledHasClaim(uint256 disputeIndex, bool value)
+```
+
+Event emitted when hasClaim gets toggled
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| disputeIndex | uint256 | Dispute ID |
+| value | bool | Value of hasClaim |
+
 ### _castVote
 
 ```solidity

@@ -165,9 +165,9 @@ describe("Scenario Flow", () => {
     expect(_dispute.arbiters.length).to.eq(3);
     expect(voteCount).to.eq(3);
 
-    await (
-      await dispute.connect(server).removeArbiter(0, arbiter1.address)
-    ).wait(1);
+    await expect(dispute.connect(server).removeArbiter(0, arbiter1.address))
+      .to.emit(dispute, "ArbiterRemoved")
+      .withArgs(_dispute.disputeID, arbiter1.address);
 
     _dispute = await dispute.getDisputeByIndex(0);
     voteCount = _dispute.voteCount;
@@ -180,10 +180,10 @@ describe("Scenario Flow", () => {
     let _dispute = await dispute.getDisputeByIndex(0);
 
     expect(_dispute.arbiters.length).to.eq(2);
+    await expect(dispute.connect(server).addArbiter(0, arbiter1.address))
+      .to.emit(dispute, "ArbiterAdded")
+      .withArgs(_dispute.disputeID, arbiter1.address);
 
-    await (
-      await dispute.connect(server).addArbiter(0, arbiter1.address)
-    ).wait(1);
     await (
       await dispute.connect(server).addArbiter(0, arbiter4.address)
     ).wait(1);

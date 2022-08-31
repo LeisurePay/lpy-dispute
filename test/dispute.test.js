@@ -81,7 +81,10 @@ describe("Dispute Flow", () => {
     await expect(dispute.connect(customer).toggleHasClaim(1)).to.be.revertedWith(
       "Only Admin or Server Allowed"
     );
-    await dispute.connect(deployer).toggleHasClaim(1);
+    await expect(dispute.connect(deployer).toggleHasClaim(1))
+      .to.emit(dispute, "ToggledHasClaim")
+      .withArgs(1, !hasClaim);
+
     const { hasClaim: newHasClaim } = await dispute.getDisputeByIndex(1);
     expect(newHasClaim).to.equal(!hasClaim);
   });

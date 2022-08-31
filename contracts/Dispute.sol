@@ -181,6 +181,30 @@ contract DisputeContract is AccessControlEnumerable {
         address indexed newSideB
     );
 
+    /// @notice Event emitted when an arbiter is added to dispute
+    /// @param disputeIndex Dispute ID
+    /// @param arbiter Arbiter added
+    event ArbiterAdded(
+        uint256 indexed disputeIndex,
+        address indexed arbiter
+    );
+
+    /// @notice Event emitted when an arbiter is removed to dispute
+    /// @param disputeIndex Dispute ID
+    /// @param arbiter Arbiter removed
+    event ArbiterRemoved(
+        uint256 indexed disputeIndex,
+        address indexed arbiter
+    );
+
+    /// @notice Event emitted when hasClaim gets toggled
+    /// @param disputeIndex Dispute ID
+    /// @param value Value of hasClaim
+    event ToggledHasClaim(
+        uint256 indexed disputeIndex,
+        bool value
+    );
+
     // INTERNAL FUNCTIONS
 
     /// @notice Internal function that does the actual casting of vote, and emits `DisputeVoted` event
@@ -238,6 +262,7 @@ contract DisputeContract is AccessControlEnumerable {
 
         Dispute storage dispute = disputes[disputeIndex];
         dispute.hasClaim = !dispute.hasClaim;
+        emit ToggledHasClaim(dispute.disputeID, dispute.hasClaim);
     }
 
     /// @notice Adds a new dispute to memory
@@ -425,6 +450,7 @@ contract DisputeContract is AccessControlEnumerable {
         require(_dispute.state == State.Open, "dispute is closed");
 
         _dispute.arbiters.set(_arbiter, IterableArbiters.UserVote(_arbiter, false, false));
+        emit ArbiterAdded(_dispute.disputeID, _arbiter);
     }
 
     /// @notice Removes a user as an arbiter to a dispute
@@ -449,6 +475,7 @@ contract DisputeContract is AccessControlEnumerable {
             _dispute.voteCount -= 1;
         }
         _dispute.arbiters.remove(_arbiter);
+        emit ArbiterRemoved(_dispute.disputeID, _arbiter);
     }
 
     /// @notice Change sideA address (in the unlikely case of an error)
