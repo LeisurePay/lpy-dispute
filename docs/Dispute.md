@@ -213,6 +213,34 @@ Event emitted when a dispute fund is claimed
 | tokenValue | uint256 | Amount of LPY claimed |
 | claimer | address | Receiver of the funds |
 
+### SideAUpdated
+
+```solidity
+event SideAUpdated(uint256 disputeIndex, address oldSideA, address newSideA)
+```
+
+Event emitted when a sideA is modified
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| disputeIndex | uint256 | Dispute ID |
+| oldSideA | address | Previous SideA Address |
+| newSideA | address | New SideA Address |
+
+### SideBUpdated
+
+```solidity
+event SideBUpdated(uint256 disputeIndex, address oldSideB, address newSideB)
+```
+
+Event emitted when a sideB is modified
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| disputeIndex | uint256 | Dispute ID |
+| oldSideB | address | Previous SideB Address |
+| newSideB | address | New SideB Address |
+
 ### _castVote
 
 ```solidity

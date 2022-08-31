@@ -161,6 +161,26 @@ contract DisputeContract is AccessControlEnumerable {
         address indexed claimer
     );
 
+    /// @notice Event emitted when a sideA is modified
+    /// @param disputeIndex Dispute ID
+    /// @param oldSideA Previous SideA Address
+    /// @param newSideA New SideA Address
+    event SideAUpdated(
+        uint256 indexed disputeIndex,
+        address indexed oldSideA,
+        address indexed newSideA
+    );
+
+    /// @notice Event emitted when a sideB is modified
+    /// @param disputeIndex Dispute ID
+    /// @param oldSideB Previous SideB Address
+    /// @param newSideB New SideB Address
+    event SideBUpdated(
+        uint256 indexed disputeIndex,
+        address indexed oldSideB,
+        address indexed newSideB
+    );
+
     // INTERNAL FUNCTIONS
 
     /// @notice Internal function that does the actual casting of vote, and emits `DisputeVoted` event
@@ -440,6 +460,7 @@ contract DisputeContract is AccessControlEnumerable {
         onlyRole(SERVER_ROLE)
     {
         Dispute storage _dispute = disputes[disputeId];
+        emit SideAUpdated(disputeId, _dispute.sideA, _sideA);
         _dispute.sideA = _sideA;
     }
 
@@ -452,6 +473,7 @@ contract DisputeContract is AccessControlEnumerable {
         onlyRole(SERVER_ROLE)
     {
         Dispute storage _dispute = disputes[disputeId];
+        emit SideBUpdated(disputeId, _dispute.sideB, _sideB);
         _dispute.sideB = _sideB;
     }
 

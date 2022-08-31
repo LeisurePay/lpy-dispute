@@ -1,5 +1,6 @@
 const { ethers } = require("hardhat");
 const { expect } = require("chai");
+const { constants } = require("ethers");
 
 describe("Scenario Flow", () => {
   let dispute;
@@ -429,13 +430,56 @@ describe("Scenario Flow", () => {
     );
   });
 
+  it("should FAIL to claim if winner side address is changed and winner tries to claim function", async () => {
+    const _dispute = await dispute.getDisputeByIndex(1);
+    const newSide = constants.AddressZero;
+    if (_dispute.winner === 1) {
+      await expect(dispute.connect(server).updateSideA(1, newSide))
+        .to.emit(dispute, "SideAUpdated")
+        .withArgs(1, _dispute.sideA, newSide);
+      await expect(dispute.connect(customer).claim(1)).to.be.revertedWith(
+        "Only SideA or Server can claim"
+      );
+      await expect(dispute.connect(server).updateSideA(1, _dispute.sideA))
+        .to.emit(dispute, "SideAUpdated")
+        .withArgs(1, newSide, _dispute.sideA);
+    } else if (_dispute.winner === 2) {
+      await expect(dispute.connect(server).updateSideB(1, newSide))
+        .to.emit(dispute, "SideBUpdated")
+        .withArgs(1, _dispute.sideB, newSide);
+      await expect(dispute.connect(merchant).claim(1)).to.be.revertedWith(
+        "Only SideB or Server can claim"
+      );
+      await expect(dispute.connect(server).updateSideB(1, _dispute.sideB))
+        .to.emit(dispute, "SideBUpdated")
+        .withArgs(1, newSide, _dispute.sideB);
+    }
+
+    // Reset the sides back to their prev value
+  });
+
   it("CLAIM: should succeed if hasClaim was on when finalize was called", async () => {
     // Transfer funds to Dispute App
     await mock.connect(deployer).transfer(dispute.address, wei("1000"));
 
-    const oldBalance = await mock.balanceOf(server.address);
-    await dispute.connect(server).claim(1);
-    const newBalance = await mock.balanceOf(server.address);
-    expect(+newBalance).to.eq(+oldBalance + +newBalance);
+    const _dispute = await dispute.getDisputeByIndex(1);
+
+    let oldBalance = 0;
+    let newBalance = 0;
+
+    if (_dispute.winner === 1) {
+      oldBalance = await mock.balanceOf(customer.address);
+      await expect(dispute.connect(customer).claim(1))
+        .to.emit(dispute, "DisputeFundClaimed")
+        .withArgs(_dispute.disputeID, _dispute.tokenValue, customer.address);
+      newBalance = await mock.balanceOf(customer.address);
+    } else if (_dispute.winner === 2) {
+      oldBalance = await mock.balanceOf(customer.address);
+      await expect(dispute.connect(merchant).claim(1))
+        .to.emit(dispute, "DisputeFundClaimed")
+        .withArgs(_dispute.disputeID, _dispute.tokenValue, merchant.address);
+      newBalance = await mock.balanceOf(merchant.address);
+    }
+    expect(+newBalance).to.eq(+oldBalance + +_dispute.tokenValue);
   });
 });
