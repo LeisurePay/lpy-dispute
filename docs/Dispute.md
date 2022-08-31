@@ -37,7 +37,7 @@ struct NFT {
 
 ```solidity
 struct Dispute {
-  uint256 disputeID;
+  uint256 disputeIndex;
   struct DisputeContract.NFT _nft;
   uint256 usdValue;
   uint256 tokenValue;
@@ -58,7 +58,7 @@ struct Dispute {
 
 ```solidity
 struct DisputeView {
-  uint256 disputeID;
+  uint256 disputeIndex;
   struct DisputeContract.NFT _nft;
   uint256 usdValue;
   uint256 tokenValue;
@@ -283,7 +283,7 @@ Event emitted when hasClaim gets toggled
 ### _castVote
 
 ```solidity
-function _castVote(uint256 index, address signer, bool agree) internal returns (struct IterableArbiters.UserVote)
+function _castVote(uint256 disputeIndex, address signer, bool agree) internal returns (struct IterableArbiters.UserVote)
 ```
 
 Internal function that does the actual casting of vote, and emits `DisputeVoted` event
@@ -292,7 +292,7 @@ _Can only be called by public/external functions that have done necessary checks
 
 | Name | Type | Description |
 | ---- | ---- | ----------- |
-| index | uint256 | ID of the dispute to vote on |
+| disputeIndex | uint256 | ID of the dispute to vote on |
 | signer | address | The user that's voting |
 | agree | bool | The vote's direction where `true==YES and false==NO` |
 
@@ -333,7 +333,7 @@ _Function can only be called by a user with the `DEFAULT_ADMIN_ROLE` or `SERVER_
 
 | Name | Type | Description |
 | ---- | ---- | ----------- |
-| disputeIndex | uint256 | the id or index of the dispute in memory |
+| disputeIndex | uint256 | the id or disputeIndex of the dispute in memory |
 
 ### createDisputeByServer
 
@@ -362,7 +362,7 @@ _Function can only be called by a user with the `SERVER_ROLE` roles, <br/>all fi
 ### castVote
 
 ```solidity
-function castVote(uint256 index, bool _agree) external returns (bool)
+function castVote(uint256 disputeIndex, bool _agree) external returns (bool)
 ```
 
 Function to let a user directly vote on a dispute
@@ -371,7 +371,7 @@ _Can only be called if; <br/> 1. dispute state is `OPEN` <br/> 2. the user is an
 
 | Name | Type | Description |
 | ---- | ---- | ----------- |
-| index | uint256 | ID of the dispute to vote on |
+| disputeIndex | uint256 | ID of the dispute to vote on |
 | _agree | bool | The vote's direction where `true==YES and false==NO` |
 
 | Name | Type | Description |
@@ -381,7 +381,7 @@ _Can only be called if; <br/> 1. dispute state is `OPEN` <br/> 2. the user is an
 ### cancelDispute
 
 ```solidity
-function cancelDispute(uint256 index) external
+function cancelDispute(uint256 disputeIndex) external
 ```
 
 Function to render a dispute cancelled and not interactable anymore
@@ -390,12 +390,12 @@ _Can only be called if dispute state is `OPEN` and the user the `SERVER_ROLE` ro
 
 | Name | Type | Description |
 | ---- | ---- | ----------- |
-| index | uint256 | ID of the dispute to cancel |
+| disputeIndex | uint256 | ID of the dispute to cancel |
 
 ### castVotesWithSignatures
 
 ```solidity
-function castVotesWithSignatures(uint256 index, bytes[] _sigs, string[] _msgs) external returns (bool)
+function castVotesWithSignatures(uint256 disputeIndex, bytes[] _sigs, string[] _msgs) external returns (bool)
 ```
 
 Submits signed votes to contract
@@ -404,7 +404,7 @@ _Function can only be called by a user with the `SERVER_ROLE` roles<br/>This fun
 
 | Name | Type | Description |
 | ---- | ---- | ----------- |
-| index | uint256 | ID of the dispute |
+| disputeIndex | uint256 | ID of the dispute |
 | _sigs | bytes[] | _sigs is an array of signatures` |
 | _msgs | string[] | _msgs is an array of the raw messages that was signed` |
 
@@ -415,7 +415,7 @@ _Function can only be called by a user with the `SERVER_ROLE` roles<br/>This fun
 ### finalizeDispute
 
 ```solidity
-function finalizeDispute(uint256 index, bool sideAWins, uint256 ratio) external returns (bool)
+function finalizeDispute(uint256 disputeIndex, bool sideAWins, uint256 ratio) external returns (bool)
 ```
 
 Finalizes and closes dispute
@@ -424,7 +424,7 @@ _Function can only be called by a user with the `SERVER_ROLE` roles<br/>The serv
 
 | Name | Type | Description |
 | ---- | ---- | ----------- |
-| index | uint256 | ID of the dispute |
+| disputeIndex | uint256 | ID of the dispute |
 | sideAWins | bool | Final say of the server on the dispute votes |
 | ratio | uint256 | This is the rate of LPY per USD |
 
@@ -435,7 +435,7 @@ _Function can only be called by a user with the `SERVER_ROLE` roles<br/>The serv
 ### addArbiter
 
 ```solidity
-function addArbiter(uint256 index, address _arbiter) external
+function addArbiter(uint256 disputeIndex, address _arbiter) external
 ```
 
 Adds a user as an arbiter to a dispute
@@ -444,13 +444,13 @@ _Function can only be called by a user with the `SERVER_ROLE` roles_
 
 | Name | Type | Description |
 | ---- | ---- | ----------- |
-| index | uint256 | ID of the dispute |
+| disputeIndex | uint256 | ID of the dispute |
 | _arbiter | address | User to add to list of dispute arbiters |
 
 ### removeArbiter
 
 ```solidity
-function removeArbiter(uint256 index, address _arbiter) external
+function removeArbiter(uint256 disputeIndex, address _arbiter) external
 ```
 
 Removes a user as an arbiter to a dispute
@@ -459,13 +459,13 @@ _Function can only be called by a user with the `SERVER_ROLE` roles_
 
 | Name | Type | Description |
 | ---- | ---- | ----------- |
-| index | uint256 | ID of the dispute |
+| disputeIndex | uint256 | ID of the dispute |
 | _arbiter | address | User to remove from list of dispute arbiters |
 
 ### updateSideA
 
 ```solidity
-function updateSideA(uint256 disputeId, address _sideA) external
+function updateSideA(uint256 disputeIndex, address _sideA) external
 ```
 
 Change sideA address (in the unlikely case of an error)
@@ -474,13 +474,13 @@ _Function can only be called by a user with the `SERVER_ROLE` roles_
 
 | Name | Type | Description |
 | ---- | ---- | ----------- |
-| disputeId | uint256 | ID of the dispute |
+| disputeIndex | uint256 | ID of the dispute |
 | _sideA | address | The address of the new sideA |
 
 ### updateSideB
 
 ```solidity
-function updateSideB(uint256 disputeId, address _sideB) external
+function updateSideB(uint256 disputeIndex, address _sideB) external
 ```
 
 Change sideB address (in the unlikely case of an error)
@@ -489,13 +489,13 @@ _Function can only be called by a user with the `SERVER_ROLE` roles_
 
 | Name | Type | Description |
 | ---- | ---- | ----------- |
-| disputeId | uint256 | ID of the dispute |
+| disputeIndex | uint256 | ID of the dispute |
 | _sideB | address | The address of the new sideB |
 
 ### claim
 
 ```solidity
-function claim(uint256 index) external returns (bool)
+function claim(uint256 disputeIndex) external returns (bool)
 ```
 
 Function for user to claim the tokens
@@ -504,19 +504,19 @@ _Function can only be called by just a user with the `SERVER_ROLE` and the winne
 
 | Name | Type | Description |
 | ---- | ---- | ----------- |
-| index | uint256 | ID of the dispute |
+| disputeIndex | uint256 | ID of the dispute |
 
 ### serializeDispute
 
 ```solidity
-function serializeDispute(uint256 index) internal view returns (struct DisputeContract.DisputeView)
+function serializeDispute(uint256 disputeIndex) internal view returns (struct DisputeContract.DisputeView)
 ```
 
 Internal function to convert type @Dispute to type @DisputeView
 
 | Name | Type | Description |
 | ---- | ---- | ----------- |
-| index | uint256 | ID of the dispute |
+| disputeIndex | uint256 | ID of the dispute |
 
 | Name | Type | Description |
 | ---- | ---- | ----------- |
@@ -573,14 +573,14 @@ Get all Canceled Dispute
 ### getDisputeByIndex
 
 ```solidity
-function getDisputeByIndex(uint256 index) external view returns (struct DisputeContract.DisputeView _dispute)
+function getDisputeByIndex(uint256 disputeIndex) external view returns (struct DisputeContract.DisputeView _dispute)
 ```
 
-Get a specific dispute based on `disputeId`
+Get a specific dispute based on `disputeIndex`
 
 | Name | Type | Description |
 | ---- | ---- | ----------- |
-| index | uint256 | ID of the dispute |
+| disputeIndex | uint256 | ID of the dispute |
 
 | Name | Type | Description |
 | ---- | ---- | ----------- |

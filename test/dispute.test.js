@@ -126,18 +126,18 @@ describe("Dispute Flow", () => {
       "Already Claimed"
     );
 
-    const index = 1; // Dispute hasClaim == TRUE
+    const disputeIndex = 1; // Dispute hasClaim == TRUE
 
-    await dispute.connect(server).finalizeDispute(index, false, wei("1"));
+    await dispute.connect(server).finalizeDispute(disputeIndex, false, wei("1"));
 
-    await expect(dispute.connect(server).claim(index)).to.be.revertedWith(
+    await expect(dispute.connect(server).claim(disputeIndex)).to.be.revertedWith(
       "ERC20: transfer amount exceeds balance"
     );
 
     // Transfer funds to Dispute App
     await mock.connect(deployer).transfer(dispute.address, wei("1000"));
 
-    const d = await dispute.getDisputeByIndex(index);
+    const d = await dispute.getDisputeByIndex(disputeIndex);
     // console.log(d);
     // const dollarValue = d.usdValue;
     const received = d.tokenValue;
@@ -148,11 +148,11 @@ describe("Dispute Flow", () => {
     if (winner === 1) {
       const serverOldBalance = await mock.balanceOf(server.address);
 
-      await expect(dispute.connect(merchant).claim(index)).to.be.revertedWith(
+      await expect(dispute.connect(merchant).claim(disputeIndex)).to.be.revertedWith(
         "Only SideA or Server can claim"
       );
 
-      await expect(dispute.connect(server).claim(index))
+      await expect(dispute.connect(server).claim(disputeIndex))
         .to.emit(mock, "Transfer")
         .withArgs(dispute.address, server.address, received);
 
@@ -161,11 +161,11 @@ describe("Dispute Flow", () => {
     } else if (winner === 2) {
       const merchantOldBalance = await mock.balanceOf(merchant.address);
 
-      await expect(dispute.connect(customer).claim(index)).to.be.revertedWith(
+      await expect(dispute.connect(customer).claim(disputeIndex)).to.be.revertedWith(
         "Only SideB or Server can claim"
       );
 
-      await expect(dispute.connect(merchant).claim(index))
+      await expect(dispute.connect(merchant).claim(disputeIndex))
         .to.emit(mock, "Transfer")
         .withArgs(dispute.address, merchant.address, received);
 
@@ -173,11 +173,11 @@ describe("Dispute Flow", () => {
       expect(merchantNewBalance).to.eq(merchantOldBalance + received);
     }
 
-    const deets = await dispute.getDisputeByIndex(index);
+    const deets = await dispute.getDisputeByIndex(disputeIndex);
     expect(deets.state).to.eq(1);
 
     await expect(
-      dispute.connect(customer).castVote(index, true)
+      dispute.connect(customer).castVote(disputeIndex, true)
     ).to.be.revertedWith(`dispute is closed`);
   });
 

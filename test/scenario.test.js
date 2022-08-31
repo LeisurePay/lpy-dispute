@@ -23,9 +23,9 @@ describe("Scenario Flow", () => {
 
   const wei = ethers.utils.parseEther;
 
-  const makeChoice = (index) => {
+  const makeChoice = (disputeIndex) => {
     const choice = CHOICES[Math.floor(Math.random() * CHOICES.length)];
-    return `${index}${choice}`;
+    return `${disputeIndex}${choice}`;
   };
 
   beforeEach(async () => {
@@ -121,24 +121,23 @@ describe("Scenario Flow", () => {
   });
 
   it("Non Arbiter tries to call castVote Function [FAIL]", async () => {
-    const index = 0;
+    const disputeIndex = 0;
 
     await expect(
-      dispute.connect(arbiter4).castVote(index, true)
+      dispute.connect(arbiter4).castVote(disputeIndex, true)
     ).to.be.revertedWith(`Not an arbiter`);
   });
 
   it("3 Arbiters call castVote Function [SUCCESS]", async () => {
-    const index = 0;
+    const disputeIndex = 0;
 
-    await (await dispute.connect(arbiter1).castVote(index, true)).wait(1);
+    await (await dispute.connect(arbiter1).castVote(disputeIndex, true)).wait(1);
 
-    await (await dispute.connect(arbiter2).castVote(index, true)).wait(1);
+    await (await dispute.connect(arbiter2).castVote(disputeIndex, true)).wait(1);
 
-    await (await dispute.connect(arbiter3).castVote(index, false)).wait(1);
+    await (await dispute.connect(arbiter3).castVote(disputeIndex, false)).wait(1);
 
-
-    const details = await dispute.getDisputeByIndex(index);
+    const details = await dispute.getDisputeByIndex(disputeIndex);
 
     let iVotes = 0;
     for (let i = 0; i < details.arbiters.length; i++) {
@@ -152,9 +151,9 @@ describe("Scenario Flow", () => {
   });
 
   it("Arbiter1 Already Voted but tries to vote again [FAIL]", async () => {
-    const index = 0;
+    const disputeIndex = 0;
     await expect(
-      dispute.connect(arbiter1).castVote(index, true)
+      dispute.connect(arbiter1).castVote(disputeIndex, true)
     ).to.be.revertedWith(`Already Voted`);
   });
 
@@ -167,7 +166,7 @@ describe("Scenario Flow", () => {
 
     await expect(dispute.connect(server).removeArbiter(0, arbiter1.address))
       .to.emit(dispute, "ArbiterRemoved")
-      .withArgs(_dispute.disputeID, arbiter1.address);
+      .withArgs(_dispute.disputeIndex, arbiter1.address);
 
     _dispute = await dispute.getDisputeByIndex(0);
     voteCount = _dispute.voteCount;
@@ -182,7 +181,7 @@ describe("Scenario Flow", () => {
     expect(_dispute.arbiters.length).to.eq(2);
     await expect(dispute.connect(server).addArbiter(0, arbiter1.address))
       .to.emit(dispute, "ArbiterAdded")
-      .withArgs(_dispute.disputeID, arbiter1.address);
+      .withArgs(_dispute.disputeIndex, arbiter1.address);
 
     await (
       await dispute.connect(server).addArbiter(0, arbiter4.address)
@@ -194,13 +193,13 @@ describe("Scenario Flow", () => {
   });
 
   it("Arbiter1 and Arbiter4 call castVote Function [SUCCESS]", async () => {
-    const index = 0;
+    const disputeIndex = 0;
 
-    await (await dispute.connect(arbiter1).castVote(index, true)).wait(1);
+    await (await dispute.connect(arbiter1).castVote(disputeIndex, true)).wait(1);
 
-    await (await dispute.connect(arbiter4).castVote(index, true)).wait(1);
+    await (await dispute.connect(arbiter4).castVote(disputeIndex, true)).wait(1);
 
-    const details = await dispute.getDisputeByIndex(index);
+    const details = await dispute.getDisputeByIndex(disputeIndex);
 
     let iVotes = 0;
     for (let i = 0; i < details.arbiters.length; i++) {
@@ -471,13 +470,13 @@ describe("Scenario Flow", () => {
       oldBalance = await mock.balanceOf(customer.address);
       await expect(dispute.connect(customer).claim(1))
         .to.emit(dispute, "DisputeFundClaimed")
-        .withArgs(_dispute.disputeID, _dispute.tokenValue, customer.address);
+        .withArgs(_dispute.disputeIndex, _dispute.tokenValue, customer.address);
       newBalance = await mock.balanceOf(customer.address);
     } else if (_dispute.winner === 2) {
       oldBalance = await mock.balanceOf(customer.address);
       await expect(dispute.connect(merchant).claim(1))
         .to.emit(dispute, "DisputeFundClaimed")
-        .withArgs(_dispute.disputeID, _dispute.tokenValue, merchant.address);
+        .withArgs(_dispute.disputeIndex, _dispute.tokenValue, merchant.address);
       newBalance = await mock.balanceOf(merchant.address);
     }
     expect(+newBalance).to.eq(+oldBalance + +_dispute.tokenValue);

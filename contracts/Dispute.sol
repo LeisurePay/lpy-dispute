@@ -34,7 +34,7 @@ contract DisputeContract is AccessControlEnumerable {
     }
 
     struct Dispute {
-        uint256 disputeID;
+        uint256 disputeIndex;
         NFT _nft;
         uint256 usdValue;
         uint256 tokenValue;
@@ -51,7 +51,7 @@ contract DisputeContract is AccessControlEnumerable {
     }
 
     struct DisputeView {
-        uint256 disputeID;
+        uint256 disputeIndex;
         NFT _nft;
         uint256 usdValue;
         uint256 tokenValue;
@@ -209,18 +209,18 @@ contract DisputeContract is AccessControlEnumerable {
 
     /// @notice Internal function that does the actual casting of vote, and emits `DisputeVoted` event
     /// @dev Can only be called by public/external functions that have done necessary checks <br/>1. dispute is opened<br/> 2. user must be an arbiter<br/>3. user should not have already voted
-    /// @param index ID of the dispute to vote on
+    /// @param disputeIndex ID of the dispute to vote on
     /// @param signer The user that's voting
     /// @param agree The vote's direction where `true==YES and false==NO`
     /// @return UserVote struct containing the vote details
     function _castVote(
-        uint256 index,
+        uint256 disputeIndex,
         address signer,
         bool agree
     ) internal returns (IterableArbiters.UserVote memory) {
         IterableArbiters.UserVote memory vote = IterableArbiters.UserVote(signer, agree, true);
 
-        emit DisputeVoted(index, signer, agree);
+        emit DisputeVoted(disputeIndex, signer, agree);
 
         return vote;
     }
@@ -256,13 +256,13 @@ contract DisputeContract is AccessControlEnumerable {
 
     /// @notice Changes the `hasClaim` field of a dispute to the opposite
     /// @dev Function can only be called by a user with the `DEFAULT_ADMIN_ROLE` or `SERVER_ROLE` role
-    /// @param disputeIndex the id or index of the dispute in memory
+    /// @param disputeIndex the id or disputeIndex of the dispute in memory
     function toggleHasClaim(uint disputeIndex) external {
         require(hasRole(DEFAULT_ADMIN_ROLE, msg.sender) || hasRole(SERVER_ROLE, msg.sender), "Only Admin or Server Allowed");
 
         Dispute storage dispute = disputes[disputeIndex];
         dispute.hasClaim = !dispute.hasClaim;
-        emit ToggledHasClaim(dispute.disputeID, dispute.hasClaim);
+        emit ToggledHasClaim(dispute.disputeIndex, dispute.hasClaim);
     }
 
     /// @notice Adds a new dispute to memory
@@ -286,14 +286,14 @@ contract DisputeContract is AccessControlEnumerable {
     ) external onlyRole(SERVER_ROLE) returns (bool) {
         require(_sideA != _sideB, "sideA == sideB");
 
-        uint256 disputeID = numOfdisputes++;
+        uint256 disputeIndex = numOfdisputes++;
 
-        Dispute storage dispute = disputes[disputeID];
+        Dispute storage dispute = disputes[disputeIndex];
 
         // Confirm tokenID is already minted
         IERC721Extended(_nftAddr).tokenURI(txID);
 
-        dispute.disputeID = disputeID;
+        dispute.disputeIndex = disputeIndex;
         dispute._nft = NFT(_nftAddr, txID);
         dispute.sideA = _sideA;
         dispute.sideB = _sideB;
@@ -306,11 +306,11 @@ contract DisputeContract is AccessControlEnumerable {
         dispute.state = State.Open;
         dispute.usdValue = usdValue;
 
-        disputeIndexesAsSideA[_sideA].push(disputeID);
-        disputeIndexesAsSideB[_sideB].push(disputeID);
+        disputeIndexesAsSideA[_sideA].push(disputeIndex);
+        disputeIndexesAsSideB[_sideB].push(disputeIndex);
 
         emit DisputeCreated(
-            disputeID,
+            disputeIndex,
             dispute._nft,
             usdValue,
             _sideA,
@@ -323,17 +323,17 @@ contract DisputeContract is AccessControlEnumerable {
 
     /// @notice Function to let a user directly vote on a dispute
     /// @dev  Can only be called if; <br/> 1. dispute state is `OPEN` <br/> 2. the user is an arbiter of that very dispute<br/>3. the user has not already voted on that dispute<br/>This function calls @_castVote
-    /// @param index ID of the dispute to vote on
+    /// @param disputeIndex ID of the dispute to vote on
     /// @param _agree The vote's direction where `true==YES and false==NO`
     /// @return if vote was successful or not
-    function castVote(uint256 index, bool _agree) external returns (bool) {
-        Dispute storage dispute = disputes[index];
+    function castVote(uint256 disputeIndex, bool _agree) external returns (bool) {
+        Dispute storage dispute = disputes[disputeIndex];
 
         require(dispute.state == State.Open, "dispute is closed");
         require(dispute.arbiters.contains(msg.sender), "Not an arbiter");
         require(!dispute.arbiters.get(msg.sender).voted, "Already Voted");
 
-        IterableArbiters.UserVote memory vote = _castVote(index, msg.sender, _agree);
+        IterableArbiters.UserVote memory vote = _castVote(disputeIndex, msg.sender, _agree);
 
         dispute.voteCount += 1;
         dispute.support += _agree ? 1 : 0;
@@ -346,35 +346,35 @@ contract DisputeContract is AccessControlEnumerable {
 
     /// @notice Function to render a dispute cancelled and not interactable anymore
     /// @dev  Can only be called if dispute state is `OPEN` and the user the `SERVER_ROLE` role and it emits a `DisputeCanceled` event
-    /// @param index ID of the dispute to cancel
-    function cancelDispute(uint256 index) external onlyRole(SERVER_ROLE){
-        Dispute storage dispute = disputes[index];
+    /// @param disputeIndex ID of the dispute to cancel
+    function cancelDispute(uint256 disputeIndex) external onlyRole(SERVER_ROLE){
+        Dispute storage dispute = disputes[disputeIndex];
 
         require(dispute.state == State.Open, "dispute is closed");
         dispute.state = State.Canceled;
 
-        emit DisputeCanceled(index);
+        emit DisputeCanceled(disputeIndex);
     }
 
     /// @notice Submits signed votes to contract
     /// @dev Function can only be called by a user with the `SERVER_ROLE` roles<br/>This function calls @_castVote
-    /// @param index ID of the dispute
+    /// @param disputeIndex ID of the dispute
     /// @param _sigs _sigs is an array of signatures`
     /// @param _msgs _msgs is an array of the raw messages that was signed`
     /// @return if vote casting was successful
     function castVotesWithSignatures(
-        uint256 index,
+        uint256 disputeIndex,
         bytes[] memory _sigs,
         string[] memory _msgs
     ) external onlyRole(SERVER_ROLE) returns (bool) {
-        Dispute storage dispute = disputes[index];
+        Dispute storage dispute = disputes[disputeIndex];
 
         require(_sigs.length == _msgs.length, "sigs and msg != same length");
         require(dispute.state == State.Open, "dispute is closed");
         bool voteCasted;
         for (uint256 i = 0; i < _sigs.length; i++) {
             (address signer, bool agree) = _getSignerAddress(
-                index,
+                disputeIndex,
                 _msgs[i],
                 _sigs[i]
             );
@@ -384,7 +384,7 @@ contract DisputeContract is AccessControlEnumerable {
             }
             require(!dispute.arbiters.get(signer).voted, "Already Voted");
 
-            IterableArbiters.UserVote memory vote = _castVote(index, signer, agree);
+            IterableArbiters.UserVote memory vote = _castVote(disputeIndex, signer, agree);
 
             dispute.voteCount += 1;
             dispute.support += agree ? 1 : 0;
@@ -400,17 +400,17 @@ contract DisputeContract is AccessControlEnumerable {
 
     /// @notice Finalizes and closes dispute
     /// @dev Function can only be called by a user with the `SERVER_ROLE` roles<br/>The server has the final say by passing `sideAWins` to `true|false`, and emits a `DisputeClosed` event
-    /// @param index ID of the dispute
+    /// @param disputeIndex ID of the dispute
     /// @param sideAWins Final say of the server on the dispute votes
     /// @param ratio This is the rate of LPY per USD
     /// @return if vote finalize was succesful
     function finalizeDispute(
-        uint256 index,
+        uint256 disputeIndex,
         bool sideAWins,
         uint256 ratio // tokens per dollar
     ) external onlyRole(SERVER_ROLE) returns (bool) {
         
-        Dispute storage dispute = disputes[index];
+        Dispute storage dispute = disputes[disputeIndex];
         require(dispute.state == State.Open, "dispute is closed");
         require(dispute.voteCount == dispute.arbiters.size(), "Votes not completed");
 
@@ -424,7 +424,7 @@ contract DisputeContract is AccessControlEnumerable {
             dispute.claimed = true;
 
         emit DisputeClosed(
-            index,
+            disputeIndex,
             dispute.usdValue,
             dispute.tokenValue,
             ratio,
@@ -438,30 +438,30 @@ contract DisputeContract is AccessControlEnumerable {
 
     /// @notice Adds a user as an arbiter to a dispute
     /// @dev Function can only be called by a user with the `SERVER_ROLE` roles
-    /// @param index ID of the dispute
+    /// @param disputeIndex ID of the dispute
     /// @param _arbiter User to add to list of dispute arbiters
-    function addArbiter(uint256 index, address _arbiter)
+    function addArbiter(uint256 disputeIndex, address _arbiter)
         external
         onlyRole(SERVER_ROLE)
     {
-        Dispute storage _dispute = disputes[index];
+        Dispute storage _dispute = disputes[disputeIndex];
 
         require(!_dispute.arbiters.contains(_arbiter), "Already an Arbiter");
         require(_dispute.state == State.Open, "dispute is closed");
 
         _dispute.arbiters.set(_arbiter, IterableArbiters.UserVote(_arbiter, false, false));
-        emit ArbiterAdded(_dispute.disputeID, _arbiter);
+        emit ArbiterAdded(_dispute.disputeIndex, _arbiter);
     }
 
     /// @notice Removes a user as an arbiter to a dispute
     /// @dev Function can only be called by a user with the `SERVER_ROLE` roles
-    /// @param index ID of the dispute
+    /// @param disputeIndex ID of the dispute
     /// @param _arbiter User to remove from list of dispute arbiters
-    function removeArbiter(uint256 index, address _arbiter)
+    function removeArbiter(uint256 disputeIndex, address _arbiter)
         external
         onlyRole(SERVER_ROLE)
     {
-        Dispute storage _dispute = disputes[index];
+        Dispute storage _dispute = disputes[disputeIndex];
         
         require(_dispute.arbiters.contains(_arbiter), "Not an arbiter");
         require(_dispute.state == State.Open, "dispute is closed");
@@ -475,40 +475,40 @@ contract DisputeContract is AccessControlEnumerable {
             _dispute.voteCount -= 1;
         }
         _dispute.arbiters.remove(_arbiter);
-        emit ArbiterRemoved(_dispute.disputeID, _arbiter);
+        emit ArbiterRemoved(_dispute.disputeIndex, _arbiter);
     }
 
     /// @notice Change sideA address (in the unlikely case of an error)
     /// @dev Function can only be called by a user with the `SERVER_ROLE` roles
-    /// @param disputeId ID of the dispute
+    /// @param disputeIndex ID of the dispute
     /// @param _sideA The address of the new sideA
-    function updateSideA(uint256 disputeId, address _sideA)
+    function updateSideA(uint256 disputeIndex, address _sideA)
         external
         onlyRole(SERVER_ROLE)
     {
-        Dispute storage _dispute = disputes[disputeId];
-        emit SideAUpdated(disputeId, _dispute.sideA, _sideA);
+        Dispute storage _dispute = disputes[disputeIndex];
+        emit SideAUpdated(disputeIndex, _dispute.sideA, _sideA);
         _dispute.sideA = _sideA;
     }
 
     /// @notice Change sideB address (in the unlikely case of an error)
     /// @dev Function can only be called by a user with the `SERVER_ROLE` roles
-    /// @param disputeId ID of the dispute
+    /// @param disputeIndex ID of the dispute
     /// @param _sideB The address of the new sideB
-    function updateSideB(uint256 disputeId, address _sideB)
+    function updateSideB(uint256 disputeIndex, address _sideB)
         external
         onlyRole(SERVER_ROLE)
     {
-        Dispute storage _dispute = disputes[disputeId];
-        emit SideBUpdated(disputeId, _dispute.sideB, _sideB);
+        Dispute storage _dispute = disputes[disputeIndex];
+        emit SideBUpdated(disputeIndex, _dispute.sideB, _sideB);
         _dispute.sideB = _sideB;
     }
 
     /// @notice Function for user to claim the tokens
     /// @dev Function can only be called by just a user with the `SERVER_ROLE` and the winner of the dispute, emits a `DisputeFundClaimed` event
-    /// @param index ID of the dispute
-    function claim(uint256 index) external returns (bool) {
-        Dispute storage _dispute = disputes[index];
+    /// @param disputeIndex ID of the dispute
+    function claim(uint256 disputeIndex) external returns (bool) {
+        Dispute storage _dispute = disputes[disputeIndex];
         require(_dispute.state == State.Closed, "dispute is not closed");
         require(_dispute.claimed != true, "Already Claimed");
 
@@ -534,7 +534,7 @@ contract DisputeContract is AccessControlEnumerable {
             "CLAIM:: transfer failed"
         );
 
-        emit DisputeFundClaimed(_dispute.disputeID, _dispute.tokenValue, msg.sender);
+        emit DisputeFundClaimed(_dispute.disputeIndex, _dispute.tokenValue, msg.sender);
 
         return true;
     }
@@ -542,13 +542,13 @@ contract DisputeContract is AccessControlEnumerable {
     // READ ONLY FUNCTIONS
 
     /// @notice Internal function to convert type @Dispute to type @DisputeView
-    /// @param index ID of the dispute
+    /// @param disputeIndex ID of the dispute
     /// @return DisputeView object
-    function serializeDispute(uint index) internal view returns (DisputeView memory) {
-        Dispute storage _dispute = disputes[index];
+    function serializeDispute(uint disputeIndex) internal view returns (DisputeView memory) {
+        Dispute storage _dispute = disputes[disputeIndex];
 
         return DisputeView(
-            _dispute.disputeID,
+            _dispute.disputeIndex,
             _dispute._nft,
             _dispute.usdValue,
             _dispute.tokenValue,
@@ -669,15 +669,15 @@ contract DisputeContract is AccessControlEnumerable {
 
         return _disputes;
     }
-    /// @notice Get a specific dispute based on `disputeId`
-    /// @param index ID of the dispute
+    /// @notice Get a specific dispute based on `disputeIndex`
+    /// @param disputeIndex ID of the dispute
     /// @return _dispute DisputeView object
-    function getDisputeByIndex(uint256 index)
+    function getDisputeByIndex(uint256 disputeIndex)
         external
         view
         returns (DisputeView memory _dispute)
     {
-        _dispute = serializeDispute(index);
+        _dispute = serializeDispute(disputeIndex);
     }
 
     /// @notice Get all Open Dispute where sideA is `_user`
@@ -690,8 +690,8 @@ contract DisputeContract is AccessControlEnumerable {
     {
         uint256 count;
         for (uint256 i = 0; i < disputeIndexesAsSideA[_user].length; i++) {
-            uint256 index = disputeIndexesAsSideA[_user][i];
-            DisputeView memory dispute = serializeDispute(index);
+            uint256 disputeIndex = disputeIndexesAsSideA[_user][i];
+            DisputeView memory dispute = serializeDispute(disputeIndex);
             if (dispute.state == State.Open) {
                 count++;
             }
@@ -701,8 +701,8 @@ contract DisputeContract is AccessControlEnumerable {
 
         uint256 outterIndex;
         for (uint256 i = 0; i < disputeIndexesAsSideA[_user].length; i++) {
-            uint256 index = disputeIndexesAsSideA[_user][i];
-            DisputeView memory dispute = serializeDispute(index);
+            uint256 disputeIndex = disputeIndexesAsSideA[_user][i];
+            DisputeView memory dispute = serializeDispute(disputeIndex);
             if (dispute.state == State.Open) {
                 _disputes[outterIndex] = dispute;
                 outterIndex++;
@@ -722,8 +722,8 @@ contract DisputeContract is AccessControlEnumerable {
     {
         uint256 count;
         for (uint256 i = 0; i < disputeIndexesAsSideA[_user].length; i++) {
-            uint256 index = disputeIndexesAsSideA[_user][i];
-            DisputeView memory dispute = serializeDispute(index);
+            uint256 disputeIndex = disputeIndexesAsSideA[_user][i];
+            DisputeView memory dispute = serializeDispute(disputeIndex);
             if (dispute.state == State.Closed) {
                 count++;
             }
@@ -733,8 +733,8 @@ contract DisputeContract is AccessControlEnumerable {
 
         uint256 outterIndex;
         for (uint256 i = 0; i < disputeIndexesAsSideA[_user].length; i++) {
-            uint256 index = disputeIndexesAsSideA[_user][i];
-            DisputeView memory dispute = serializeDispute(index);
+            uint256 disputeIndex = disputeIndexesAsSideA[_user][i];
+            DisputeView memory dispute = serializeDispute(disputeIndex);
             if (dispute.state == State.Closed) {
                 _disputes[outterIndex] = dispute;
                 outterIndex++;
@@ -754,8 +754,8 @@ contract DisputeContract is AccessControlEnumerable {
     {
         uint256 count;
         for (uint256 i = 0; i < disputeIndexesAsSideA[_user].length; i++) {
-            uint256 index = disputeIndexesAsSideA[_user][i];
-            DisputeView memory dispute = serializeDispute(index);
+            uint256 disputeIndex = disputeIndexesAsSideA[_user][i];
+            DisputeView memory dispute = serializeDispute(disputeIndex);
             if (dispute.state == State.Canceled) {
                 count++;
             }
@@ -765,8 +765,8 @@ contract DisputeContract is AccessControlEnumerable {
 
         uint256 outterIndex;
         for (uint256 i = 0; i < disputeIndexesAsSideA[_user].length; i++) {
-            uint256 index = disputeIndexesAsSideA[_user][i];
-            DisputeView memory dispute = serializeDispute(index);
+            uint256 disputeIndex = disputeIndexesAsSideA[_user][i];
+            DisputeView memory dispute = serializeDispute(disputeIndex);
             if (dispute.state == State.Canceled) {
                 _disputes[outterIndex] = dispute;
                 outterIndex++;
@@ -786,8 +786,8 @@ contract DisputeContract is AccessControlEnumerable {
     {
         uint256 count;
         for (uint256 i = 0; i < disputeIndexesAsSideB[_user].length; i++) {
-            uint256 index = disputeIndexesAsSideB[_user][i];
-            DisputeView memory dispute = serializeDispute(index);
+            uint256 disputeIndex = disputeIndexesAsSideB[_user][i];
+            DisputeView memory dispute = serializeDispute(disputeIndex);
             if (dispute.state == State.Open) {
                 count++;
             }
@@ -797,8 +797,8 @@ contract DisputeContract is AccessControlEnumerable {
 
         uint256 outterIndex;
         for (uint256 i = 0; i < disputeIndexesAsSideB[_user].length; i++) {
-            uint256 index = disputeIndexesAsSideB[_user][i];
-            DisputeView memory dispute = serializeDispute(index);
+            uint256 disputeIndex = disputeIndexesAsSideB[_user][i];
+            DisputeView memory dispute = serializeDispute(disputeIndex);
             if (dispute.state == State.Open) {
                 _disputes[outterIndex] = dispute;
                 outterIndex++;
@@ -818,8 +818,8 @@ contract DisputeContract is AccessControlEnumerable {
     {
         uint256 count;
         for (uint256 i = 0; i < disputeIndexesAsSideB[_user].length; i++) {
-            uint256 index = disputeIndexesAsSideB[_user][i];
-            DisputeView memory dispute = serializeDispute(index);
+            uint256 disputeIndex = disputeIndexesAsSideB[_user][i];
+            DisputeView memory dispute = serializeDispute(disputeIndex);
             if (dispute.state == State.Closed) {
                 count++;
             }
@@ -829,8 +829,8 @@ contract DisputeContract is AccessControlEnumerable {
 
         uint256 outterIndex;
         for (uint256 i = 0; i < disputeIndexesAsSideB[_user].length; i++) {
-            uint256 index = disputeIndexesAsSideB[_user][i];
-            DisputeView memory dispute = serializeDispute(index);
+            uint256 disputeIndex = disputeIndexesAsSideB[_user][i];
+            DisputeView memory dispute = serializeDispute(disputeIndex);
             if (dispute.state == State.Closed) {
                 _disputes[outterIndex] = dispute;
                 outterIndex++;
@@ -850,8 +850,8 @@ contract DisputeContract is AccessControlEnumerable {
     {
         uint256 count;
         for (uint256 i = 0; i < disputeIndexesAsSideB[_user].length; i++) {
-            uint256 index = disputeIndexesAsSideB[_user][i];
-            DisputeView memory dispute = serializeDispute(index);
+            uint256 disputeIndex = disputeIndexesAsSideB[_user][i];
+            DisputeView memory dispute = serializeDispute(disputeIndex);
             if (dispute.state == State.Canceled) {
                 count++;
             }
@@ -861,8 +861,8 @@ contract DisputeContract is AccessControlEnumerable {
 
         uint256 outterIndex;
         for (uint256 i = 0; i < disputeIndexesAsSideB[_user].length; i++) {
-            uint256 index = disputeIndexesAsSideB[_user][i];
-            DisputeView memory dispute = serializeDispute(index);
+            uint256 disputeIndex = disputeIndexesAsSideB[_user][i];
+            DisputeView memory dispute = serializeDispute(disputeIndex);
             if (dispute.state == State.Canceled) {
                 _disputes[outterIndex] = dispute;
                 outterIndex++;

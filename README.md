@@ -90,7 +90,7 @@ Step 3: If there's an error about who sideA or sideB is on dispute creation, you
 
 Step 4: If you decide to stop a dispute, you can [Cancel a Dispute](./docs/Dispute.md#canceldispute)
 
-Step 5: Arbiters vote by signing a message `("disputeID + A|B")` and submits this signature to the server.
+Step 5: Arbiters vote by signing a message `("disputeIndex + A|B")` and submits this signature to the server.
 
 Step 6: The server can send the signatures along with the messages signed to the contract by calling [Casting Votes](./docs/Dispute.md#castvoteswithsignatures)
 

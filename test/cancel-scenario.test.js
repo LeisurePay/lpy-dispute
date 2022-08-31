@@ -22,9 +22,9 @@ describe("Cancel Scenario Flow", () => {
 
   const wei = ethers.utils.parseEther;
 
-  const makeChoice = (index) => {
+  const makeChoice = (disputeIndex) => {
     const choice = CHOICES[Math.floor(Math.random() * CHOICES.length)];
-    return `${index}${choice}`;
+    return `${disputeIndex}${choice}`;
   };
 
   beforeEach(async () => {
@@ -80,19 +80,19 @@ describe("Cancel Scenario Flow", () => {
   });
 
   it("Server cancels Dispute [FAIL] caller isn't signer", async () => {
-    const index = 0;
+    const disputeIndex = 0;
 
-    await expect(dispute.cancelDispute(index)).to.be.reverted;
-    const details = await dispute.getDisputeByIndex(index);
+    await expect(dispute.cancelDispute(disputeIndex)).to.be.reverted;
+    const details = await dispute.getDisputeByIndex(disputeIndex);
 
     expect(details.state).to.eq(0);
   });
 
   it("Server cancels Dispute [SUCCESS]", async () => {
-    const index = 0;
+    const disputeIndex = 0;
 
-    await dispute.connect(server).cancelDispute(index);
-    const details = await dispute.getDisputeByIndex(index);
+    await dispute.connect(server).cancelDispute(disputeIndex);
+    const details = await dispute.getDisputeByIndex(disputeIndex);
 
     expect(details.state).to.eq(2);
   });
