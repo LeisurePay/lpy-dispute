@@ -446,8 +446,8 @@ contract DisputeContract is AccessControlEnumerable {
     {
         Dispute storage _dispute = disputes[disputeIndex];
 
-        require(!_dispute.arbiters.contains(_arbiter), "Already an Arbiter");
         require(_dispute.state == State.Open, "dispute is closed");
+        require(!_dispute.arbiters.contains(_arbiter), "Already an Arbiter");
 
         _dispute.arbiters.set(_arbiter, IterableArbiters.UserVote(_arbiter, false, false));
         emit ArbiterAdded(_dispute.disputeIndex, _arbiter);
@@ -463,8 +463,8 @@ contract DisputeContract is AccessControlEnumerable {
     {
         Dispute storage _dispute = disputes[disputeIndex];
         
-        require(_dispute.arbiters.contains(_arbiter), "Not an arbiter");
         require(_dispute.state == State.Open, "dispute is closed");
+        require(_dispute.arbiters.contains(_arbiter), "Not an arbiter");
 
 
         IterableArbiters.UserVote memory vote = _dispute.arbiters.get(_arbiter);
