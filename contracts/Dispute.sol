@@ -106,7 +106,7 @@ contract DisputeContract is AccessControlEnumerable {
     /// @notice Event emitted when a dispute is created
     /// @param disputeIndex Created dispute ID
     /// @param _nft A struct containing the NFT address and its ID
-    /// @param usdValue Dispute's USD at stake
+    /// @param usdValue Dispute's USD at stake (1000000 == 1 USD; 6 decimals)
     /// @param sideA Creator of the dispute
     /// @param sideB Attached user to the dispute
     /// @param arbiters An array of users responsible for voting
@@ -131,7 +131,7 @@ contract DisputeContract is AccessControlEnumerable {
 
     /// @notice Event emitted when a dispute is closed
     /// @param disputeIndex Dispute ID
-    /// @param usdValue Dispute's USD at stake
+    /// @param usdValue Dispute's USD at stake (1000000 == 1 USD; 6 decimals)
     /// @param tokenValue LPY Token worth `usdValue`
     /// @param rate The present lpy rate per usd
     /// @param sideAVotes Total Votes `sideA` received
@@ -272,7 +272,7 @@ contract DisputeContract is AccessControlEnumerable {
     /// @param _hasClaim A field to know if settlement occurs on chain
     /// @param _nftAddr The LPY NFT contract address
     /// @param txID The LPY NFT ID to confirm it's a valid transaction
-    /// @param usdValue Amount at stake in USD
+    /// @param usdValue Dispute's USD at stake (1000000 == 1 USD; 6 decimals)
     /// @param _arbiters List of users that can vote on this dispute
     /// @return if creation was successful or not
     function createDisputeByServer(
@@ -414,7 +414,7 @@ contract DisputeContract is AccessControlEnumerable {
         require(dispute.state == State.Open, "dispute is closed");
         require(dispute.voteCount == dispute.arbiters.size(), "Votes not completed");
 
-        dispute.tokenValue = dispute.usdValue * ratio;
+        dispute.tokenValue = (dispute.usdValue * ratio) / 1e6; // divide by 1e6 (6 decimals)
 
         dispute.winner = sideAWins ? PARTIES.A : PARTIES.B;
 

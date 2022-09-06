@@ -42,14 +42,14 @@ describe("Dispute Flow", () => {
     let disputes = await dispute.getAllDisputes();
     await expect(disputes.length).to.eq(0);
     await expect(
-      dispute.connect(server).createDisputeByServer(customer.address, merchant.address, false, erc721.address, 1, 20, [
+      dispute.connect(server).createDisputeByServer(customer.address, merchant.address, false, erc721.address, 1, 20e6, [
         arbiter1.address,
         arbiter1.address
       ]), "Duplicate keys");
 
     await dispute
       .connect(server)
-      .createDisputeByServer(customer.address, merchant.address, false, erc721.address, 1, 20, [
+      .createDisputeByServer(customer.address, merchant.address, false, erc721.address, 1, 20e6, [
         arbiter1.address,
         arbiter2.address,
         arbiter3.address,
@@ -57,7 +57,7 @@ describe("Dispute Flow", () => {
 
       await dispute
       .connect(server)
-      .createDisputeByServer(customer.address, merchant.address, false, erc721.address, 1, 20, [
+      .createDisputeByServer(customer.address, merchant.address, false, erc721.address, 1, 20e6, [
         arbiter1.address,
         arbiter2.address,
         arbiter3.address,
@@ -185,7 +185,7 @@ describe("Dispute Flow", () => {
     for (let i = 0; i < 3; i++) {
       await dispute
         .connect(server)
-        .createDisputeByServer(customer.address, merchant.address, false, erc721.address, 1, 20, [
+        .createDisputeByServer(customer.address, merchant.address, false, erc721.address, 1, 20e6, [
           arbiter1.address,
           arbiter2.address,
           arbiter3.address,

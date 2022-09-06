@@ -150,7 +150,7 @@ Event emitted when a dispute is created
 | ---- | ---- | ----------- |
 | disputeIndex | uint256 | Created dispute ID |
 | _nft | struct DisputeContract.NFT | A struct containing the NFT address and its ID |
-| usdValue | uint256 | Dispute's USD at stake |
+| usdValue | uint256 | Dispute's USD at stake (1000000 == 1 USD; 6 decimals) |
 | sideA | address | Creator of the dispute |
 | sideB | address | Attached user to the dispute |
 | arbiters | address[] | An array of users responsible for voting |
@@ -180,7 +180,7 @@ Event emitted when a dispute is closed
 | Name | Type | Description |
 | ---- | ---- | ----------- |
 | disputeIndex | uint256 | Dispute ID |
-| usdValue | uint256 | Dispute's USD at stake |
+| usdValue | uint256 | Dispute's USD at stake (1000000 == 1 USD; 6 decimals) |
 | tokenValue | uint256 | LPY Token worth `usdValue` |
 | rate | uint256 | The present lpy rate per usd |
 | sideAVotes | uint256 | Total Votes `sideA` received |
@@ -352,7 +352,7 @@ _Function can only be called by a user with the `SERVER_ROLE` roles, <br/>all fi
 | _hasClaim | bool | A field to know if settlement occurs on chain |
 | _nftAddr | address | The LPY NFT contract address |
 | txID | uint256 | The LPY NFT ID to confirm it's a valid transaction |
-| usdValue | uint256 | Amount at stake in USD |
+| usdValue | uint256 | Dispute's USD at stake (1000000 == 1 USD; 6 decimals) |
 | _arbiters | address[] | List of users that can vote on this dispute |
 
 | Name | Type | Description |

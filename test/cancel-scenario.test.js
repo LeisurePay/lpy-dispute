@@ -67,7 +67,7 @@ describe("Cancel Scenario Flow", () => {
     await (
       await dispute
         .connect(server)
-        .createDisputeByServer(customer.address, merchant.address, false, erc721.address, 1, 20, [
+        .createDisputeByServer(customer.address, merchant.address, false, erc721.address, 1, 20e6, [
           arbiter1.address,
           arbiter2.address,
           arbiter3.address,
