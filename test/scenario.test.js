@@ -1,4 +1,4 @@
-const { ethers } = require("hardhat");
+const { ethers, network } = require("hardhat");
 const { expect } = require("chai");
 const { constants } = require("ethers");
 
@@ -46,17 +46,30 @@ describe("Scenario Flow", () => {
     const IARB = await ethers.getContractFactory("IterableArbiters");
 
     erc721 = await ERC721.deploy("https://based.com/");
-    await erc721.safeMint(deployer.address, "");
-    await erc721.safeMint(deployer.address, "");
+    const firstMint = await erc721.safeMint(deployer.address, "");
+    if (!network.name.match(/.*(ganache|localhost|hardhat).*/i))
+      await firstMint.wait(2);
+    const secondMint = await erc721.safeMint(deployer.address, "");
+    if (!network.name.match(/.*(ganache|localhost|hardhat).*/i))
+      await secondMint.wait(2);
     mock = await ERC20.deploy();
 
     const args = [mock.address, server.address];
+    const library = await IARB.deploy();
     const DISPUTE = await ethers.getContractFactory("DisputeContract", {
       libraries: {
-        IterableArbiters: (await IARB.deploy()).address,
+        IterableArbiters: library.address,
       },
     });
     dispute = await DISPUTE.deploy(...args);
+
+    console.log('====================================');
+    console.log('=====SCENARIO TEST CONTRACTS======');
+    console.log(`ERC20: ${mock.address}`);
+    console.log(`ERC721: ${erc721.address}`);
+    console.log(`Library: ${library.address}`);
+    console.log(`Dispute: ${dispute.address}`);
+    console.log('====================================');
 
     first = false;
   });
@@ -94,26 +107,26 @@ describe("Scenario Flow", () => {
     let disputes = await dispute.getAllDisputes();
     expect(disputes.length).to.eq(0);
 
-    await (
-      await dispute
-        .connect(server)
-        .createDisputeByServer(customer.address, merchant.address, false, erc721.address, 1, 20e6, [
-          arbiter1.address,
-          arbiter2.address,
-          arbiter3.address,
-        ])
-    ).wait(1);
+    const tx = await dispute
+      .connect(server)
+      .createDisputeByServer(customer.address, merchant.address, false, erc721.address, 1, 20e6, [
+        arbiter1.address,
+        arbiter2.address,
+        arbiter3.address,
+      ])
+    if (!network.name.match(/.*(ganache|localhost|hardhat).*/i))
+      await tx.wait(2);
 
     // Initialize dispute index 1 with true value for hasClaim field
-    await (
-      await dispute
-        .connect(server)
-        .createDisputeByServer(customer.address, merchant.address, true, erc721.address, 1, 20e6, [
-          arbiter1.address,
-          arbiter2.address,
-          arbiter3.address,
-        ])
-    ).wait(1);
+    const tx1 = await dispute
+      .connect(server)
+      .createDisputeByServer(customer.address, merchant.address, true, erc721.address, 1, 20e6, [
+        arbiter1.address,
+        arbiter2.address,
+        arbiter3.address,
+      ])
+    if (!network.name.match(/.*(ganache|localhost|hardhat).*/i))
+      await tx1.wait(2);
 
     disputes = await dispute.getAllDisputes();
 
@@ -131,11 +144,15 @@ describe("Scenario Flow", () => {
   it("3 Arbiters call castVote Function [SUCCESS]", async () => {
     const disputeIndex = 0;
 
-    await (await dispute.connect(arbiter1).castVote(disputeIndex, true)).wait(1);
-
-    await (await dispute.connect(arbiter2).castVote(disputeIndex, true)).wait(1);
-
-    await (await dispute.connect(arbiter3).castVote(disputeIndex, false)).wait(1);
+    const tx1 = await dispute.connect(arbiter1).castVote(disputeIndex, true);
+    if (!network.name.match(/.*(ganache|localhost|hardhat).*/i))
+      await tx1.wait(2);
+    const tx2 = await dispute.connect(arbiter2).castVote(disputeIndex, true);
+    if (!network.name.match(/.*(ganache|localhost|hardhat).*/i))
+      await tx2.wait(2);
+    const tx3 = await dispute.connect(arbiter3).castVote(disputeIndex, false);
+    if (!network.name.match(/.*(ganache|localhost|hardhat).*/i))
+      await tx3.wait(2);
 
     const details = await dispute.getDisputeByIndex(disputeIndex);
 
@@ -183,9 +200,9 @@ describe("Scenario Flow", () => {
       .to.emit(dispute, "ArbiterAdded")
       .withArgs(_dispute.disputeIndex, arbiter1.address);
 
-    await (
-      await dispute.connect(server).addArbiter(0, arbiter4.address)
-    ).wait(1);
+    const tx = await dispute.connect(server).addArbiter(0, arbiter4.address)
+    if (!network.name.match(/.*(ganache|localhost|hardhat).*/i))
+      await tx.wait(2);
 
     _dispute = await dispute.getDisputeByIndex(0);
 
@@ -195,9 +212,13 @@ describe("Scenario Flow", () => {
   it("Arbiter1 and Arbiter4 call castVote Function [SUCCESS]", async () => {
     const disputeIndex = 0;
 
-    await (await dispute.connect(arbiter1).castVote(disputeIndex, true)).wait(1);
+    const tx = await dispute.connect(arbiter1).castVote(disputeIndex, true);
+    if (!network.name.match(/.*(ganache|localhost|hardhat).*/i))
+      await tx.wait(2);
 
-    await (await dispute.connect(arbiter4).castVote(disputeIndex, true)).wait(1);
+    const tx1 = await dispute.connect(arbiter4).castVote(disputeIndex, true);
+    if (!network.name.match(/.*(ganache|localhost|hardhat).*/i))
+      await tx1.wait(2);
 
     const details = await dispute.getDisputeByIndex(disputeIndex);
 
@@ -218,19 +239,21 @@ describe("Scenario Flow", () => {
     expect(_dispute.arbiters.length).to.eq(4);
     expect(voteCount).to.eq(4);
 
-    await (
-      await dispute.connect(server).removeArbiter(0, arbiter1.address)
-    ).wait(1);
-    await (
-      await dispute.connect(server).removeArbiter(0, arbiter2.address)
-    ).wait(1);
-    await (
-      await dispute.connect(server).removeArbiter(0, arbiter3.address)
-    ).wait(1);
-    await (
-      await dispute.connect(server).removeArbiter(0, arbiter4.address)
-    ).wait(1);
+    const tx = await dispute.connect(server).removeArbiter(0, arbiter1.address);
+    if (!network.name.match(/.*(ganache|localhost|hardhat).*/i))
+      await tx.wait(2);
 
+    const tx1 = await dispute.connect(server).removeArbiter(0, arbiter2.address);
+    if (!network.name.match(/.*(ganache|localhost|hardhat).*/i))
+      await tx1.wait(2);
+
+    const tx2 = await dispute.connect(server).removeArbiter(0, arbiter3.address);
+    if (!network.name.match(/.*(ganache|localhost|hardhat).*/i))
+      await tx2.wait(2);
+
+    const tx3 = await dispute.connect(server).removeArbiter(0, arbiter4.address);
+    if (!network.name.match(/.*(ganache|localhost|hardhat).*/i))
+      await tx3.wait(2);
     _dispute = await dispute.getDisputeByIndex(0);
     voteCount = _dispute.voteCount;
 
@@ -243,18 +266,21 @@ describe("Scenario Flow", () => {
 
     expect(_dispute.arbiters.length).to.eq(0);
 
-    await (
-      await dispute.connect(server).addArbiter(0, arbiter1.address)
-    ).wait(1);
-    await (
-      await dispute.connect(server).addArbiter(0, arbiter2.address)
-    ).wait(1);
-    await (
-      await dispute.connect(server).addArbiter(0, arbiter3.address)
-    ).wait(1);
-    await (
-      await dispute.connect(server).addArbiter(0, arbiter4.address)
-    ).wait(1);
+    const tx = await dispute.connect(server).addArbiter(0, arbiter1.address);
+    if (!network.name.match(/.*(ganache|localhost|hardhat).*/i))
+      await tx.wait(2);
+
+    const tx1 = await dispute.connect(server).addArbiter(0, arbiter2.address);
+    if (!network.name.match(/.*(ganache|localhost|hardhat).*/i))
+      await tx1.wait(2);
+
+    const tx2 = await dispute.connect(server).addArbiter(0, arbiter3.address);
+    if (!network.name.match(/.*(ganache|localhost|hardhat).*/i))
+      await tx2.wait(2);
+
+    const tx3 = await dispute.connect(server).addArbiter(0, arbiter4.address);
+    if (!network.name.match(/.*(ganache|localhost|hardhat).*/i))
+      await tx3.wait(2);
 
     _dispute = await dispute.getDisputeByIndex(0);
     const voteCount = _dispute.voteCount;
@@ -336,9 +362,9 @@ describe("Scenario Flow", () => {
     let _dispute = await dispute.getDisputeByIndex(0);
     expect(_dispute.voteCount).to.equal(0);
 
-    await (
-      await dispute.connect(server).castVotesWithSignatures(0, _sigs, _msgs)
-    ).wait(1);
+    const tx = await dispute.connect(server).castVotesWithSignatures(0, _sigs, _msgs)
+    if (!network.name.match(/.*(ganache|localhost|hardhat).*/i))
+      await tx.wait(2);
 
     // Parallel Dispute which hasClaim would be toggled to true
     const _msgs2 = [];
@@ -348,9 +374,9 @@ describe("Scenario Flow", () => {
       _msgs2.push(votes2[i].choice);
       _sigs2.push(votes2[i].signature);
     }
-    await (
-      await dispute.connect(server).castVotesWithSignatures(1, _sigs2, _msgs2)
-    ).wait(1);
+    const tx1 = await dispute.connect(server).castVotesWithSignatures(1, _sigs2, _msgs2)
+    if (!network.name.match(/.*(ganache|localhost|hardhat).*/i))
+      await tx1.wait(2);
 
     _dispute = await dispute.getDisputeByIndex(0);
     expect(_dispute.voteCount).to.equal(2);
@@ -400,27 +426,27 @@ describe("Scenario Flow", () => {
     let _dispute = await dispute.getDisputeByIndex(0);
     expect(_dispute.voteCount).to.equal(3);
 
-    await (
-      await dispute.connect(server).castVotesWithSignatures(0, _sigs, _msgs)
-    ).wait(1);
+    const tx = await dispute.connect(server).castVotesWithSignatures(0, _sigs, _msgs)
+    if (!network.name.match(/.*(ganache|localhost|hardhat).*/i))
+      await tx.wait(2);
 
     _dispute = await dispute.getDisputeByIndex(0);
     expect(_dispute.voteCount).to.equal(4);
   });
 
   it("Server should call finalizeDispute function [SUCCESS]", async () => {
-    await (
-      await dispute.connect(server).finalizeDispute(0, false, wei("1"))
-    ).wait(1);
+    const tx = await dispute.connect(server).finalizeDispute(0, false, wei("1"))
+    if (!network.name.match(/.*(ganache|localhost|hardhat).*/i))
+      await tx.wait(2);
 
     const _dispute = await dispute.getDisputeByIndex(0);
 
     expect(_dispute.state).to.equal(1); // Closed
 
     // Dispute Index 1
-    await (
-      await dispute.connect(server).finalizeDispute(1, false, wei("1"))
-    ).wait(1);
+    const tx1 = await dispute.connect(server).finalizeDispute(1, false, wei("1"))
+    if (!network.name.match(/.*(ganache|localhost|hardhat).*/i))
+      await tx1.wait(2);
   });
 
   it("CLAIM: should fail if hasClaim was off when finalize was called", async () => {

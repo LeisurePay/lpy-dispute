@@ -1,4 +1,4 @@
-const { ethers } = require("hardhat");
+const { ethers, network } = require("hardhat");
 const { expect } = require("chai");
 const { constants } = require("ethers");
 
@@ -24,16 +24,29 @@ describe("Dispute Flow", () => {
     mock = await ERC20.deploy();
     erc721 = await ERC721.deploy("https://based.com/");
 
-    await erc721.safeMint(deployer.address, "");
-    await erc721.safeMint(deployer.address, "");
+    const firstMint = await erc721.safeMint(deployer.address, "");
+    if (!network.name.match(/.*(ganache|localhost|hardhat).*/i))
+      await firstMint.wait(2);
+    const secondMint = await erc721.safeMint(deployer.address, "");
+    if (!network.name.match(/.*(ganache|localhost|hardhat).*/i))
+      await secondMint.wait(2);
 
     const args = [mock.address, server.address];
+    const library = await IARB.deploy();
     const DISPUTE = await ethers.getContractFactory("DisputeContract", {
       libraries: {
-        IterableArbiters: (await IARB.deploy()).address,
+        IterableArbiters: library.address,
       },
     });
     dispute = await DISPUTE.deploy(...args);
+
+    console.log('====================================');
+    console.log('=====DISPUTE TEST CONTRACTS======');
+    console.log(`ERC20: ${mock.address}`);
+    console.log(`ERC721: ${erc721.address}`);
+    console.log(`Library: ${library.address}`);
+    console.log(`Dispute: ${dispute.address}`);
+    console.log('====================================');
 
     first = false;
   });
@@ -47,21 +60,25 @@ describe("Dispute Flow", () => {
         arbiter1.address
       ]), "Duplicate keys");
 
-    await dispute
+    const tx1 = await dispute
       .connect(server)
       .createDisputeByServer(customer.address, merchant.address, false, erc721.address, 1, 20e6, [
         arbiter1.address,
         arbiter2.address,
         arbiter3.address,
-      ]);
+      ])
+    if (!network.name.match(/.*(ganache|localhost|hardhat).*/i))
+      await tx1.wait(2);
 
-      await dispute
+    const tx2 = await dispute
       .connect(server)
       .createDisputeByServer(customer.address, merchant.address, false, erc721.address, 1, 20e6, [
         arbiter1.address,
         arbiter2.address,
         arbiter3.address,
-      ]);
+      ])
+    if (!network.name.match(/.*(ganache|localhost|hardhat).*/i))
+      await tx2.wait(2);
 
     disputes = await dispute.getAllDisputes();
 
@@ -97,11 +114,15 @@ describe("Dispute Flow", () => {
         dispute.connect(customer).castVote(i, true)
       ).to.be.revertedWith("Not an arbiter");
 
-      await dispute.connect(arbiter1).castVote(i, true);
-
-      await dispute.connect(arbiter2).castVote(i, true);
-
-      await dispute.connect(arbiter3).castVote(i, false);
+      const tx1 = await dispute.connect(arbiter1).castVote(i, true);
+      if (!network.name.match(/.*(ganache|localhost|hardhat).*/i))
+        await tx1.wait(2);
+      const tx2 = await dispute.connect(arbiter2).castVote(i, true);
+      if (!network.name.match(/.*(ganache|localhost|hardhat).*/i))
+        await tx2.wait(2);
+      const tx3 = await dispute.connect(arbiter3).castVote(i, false);
+      if (!network.name.match(/.*(ganache|localhost|hardhat).*/i))
+        await tx3.wait(2);
 
       await expect(
         dispute.connect(arbiter1).castVote(i, true)
@@ -120,7 +141,9 @@ describe("Dispute Flow", () => {
 
   it("finalizeDispute Function works as expected", async () => {
     await expect(dispute.connect(arbiter1).finalizeDispute(0, false, wei("1"))).to.be.reverted;
-    await dispute.connect(server).finalizeDispute(0, false, wei("1"));
+    const tx = await dispute.connect(server).finalizeDispute(0, false, wei("1"));
+    if (!network.name.match(/.*(ganache|localhost|hardhat).*/i))
+      await tx.wait(2);
 
     await expect(dispute.connect(server).claim(0)).to.be.revertedWith(
       "Already Claimed"
@@ -128,14 +151,18 @@ describe("Dispute Flow", () => {
 
     const disputeIndex = 1; // Dispute hasClaim == TRUE
 
-    await dispute.connect(server).finalizeDispute(disputeIndex, false, wei("1"));
-
+    const tx1 = await dispute.connect(server).finalizeDispute(disputeIndex, false, wei("1"));
+    if (!network.name.match(/.*(ganache|localhost|hardhat).*/i))
+      await tx1.wait(2);
+    
     await expect(dispute.connect(server).claim(disputeIndex)).to.be.revertedWith(
       "ERC20: transfer amount exceeds balance"
     );
 
     // Transfer funds to Dispute App
-    await mock.connect(deployer).transfer(dispute.address, wei("1000"));
+    const tx2 = await mock.connect(deployer).transfer(dispute.address, wei("1000"));
+    if (!network.name.match(/.*(ganache|localhost|hardhat).*/i))
+      await tx2.wait(20);
 
     const d = await dispute.getDisputeByIndex(disputeIndex);
     // console.log(d);

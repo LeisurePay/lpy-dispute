@@ -1,4 +1,4 @@
-const { ethers } = require("hardhat");
+const { ethers, network } = require("hardhat");
 const { expect } = require("chai");
 
 describe("Scenario Flow", () => {
@@ -46,17 +46,30 @@ describe("Scenario Flow", () => {
     const IARB = await ethers.getContractFactory("IterableArbiters");
 
     erc721 = await ERC721.deploy("https://based.com/");
-    await erc721.safeMint(deployer.address, "");
-    await erc721.safeMint(deployer.address, "");
+    const firstMint = await erc721.safeMint(deployer.address, "");
+    if (!network.name.match(/.*(ganache|localhost|hardhat).*/i))
+      await firstMint.wait(2);
+    const secondMint = await erc721.safeMint(deployer.address, "");
+    if (!network.name.match(/.*(ganache|localhost|hardhat).*/i))
+      await secondMint.wait(2);
     mock = await ERC20.deploy();
 
     const args = [mock.address, server.address];
+    const library = await IARB.deploy();
     const DISPUTE = await ethers.getContractFactory("DisputeContract", {
       libraries: {
-        IterableArbiters: (await IARB.deploy()).address,
+        IterableArbiters: library.address,
       },
     });
     dispute = await DISPUTE.deploy(...args);
+
+    console.log('====================================');
+    console.log('=====MATH TEST CONTRACTS======');
+    console.log(`ERC20: ${mock.address}`);
+    console.log(`ERC721: ${erc721.address}`);
+    console.log(`Library: ${library.address}`);
+    console.log(`Dispute: ${dispute.address}`);
+    console.log('====================================');
 
     first = false;
   });
@@ -65,16 +78,16 @@ describe("Scenario Flow", () => {
     let disputes = await dispute.getAllDisputes();
     expect(disputes.length).to.eq(0);
 
-    await (
-      await dispute
-        .connect(server)
-        .createDisputeByServer(customer.address, merchant.address, true, erc721.address, 1, usdValue, [
-          arbiter1.address,
-          arbiter2.address,
-          arbiter3.address,
-          arbiter4.address,
-        ])
-    ).wait(1);
+    const tx = await dispute
+      .connect(server)
+      .createDisputeByServer(customer.address, merchant.address, true, erc721.address, 1, usdValue, [
+        arbiter1.address,
+        arbiter2.address,
+        arbiter3.address,
+        arbiter4.address,
+      ])
+    if (!network.name.match(/.*(ganache|localhost|hardhat).*/i))
+      await tx.wait(2);
 
     disputes = await dispute.getAllDisputes();
 
@@ -114,18 +127,18 @@ describe("Scenario Flow", () => {
     let _dispute = await dispute.getDisputeByIndex(0);
     expect(_dispute.voteCount).to.equal(0);
 
-    await (
-      await dispute.connect(server).castVotesWithSignatures(0, _sigs, _msgs)
-    ).wait(1);
+    const tx = await dispute.connect(server).castVotesWithSignatures(0, _sigs, _msgs)
+    if (!network.name.match(/.*(ganache|localhost|hardhat).*/i))
+      await tx.wait(2);
 
     _dispute = await dispute.getDisputeByIndex(0);
     expect(_dispute.voteCount).to.equal(4);
   });
 
   it("Server should call finalizeDispute function [SUCCESS]", async () => {
-    await (
-      await dispute.connect(server).finalizeDispute(0, false, tokenPerDollar)
-    ).wait(1);
+    const tx = await dispute.connect(server).finalizeDispute(0, false, tokenPerDollar)
+    if (!network.name.match(/.*(ganache|localhost|hardhat).*/i))
+      await tx.wait(2);
 
     const _dispute = await dispute.getDisputeByIndex(0);
 

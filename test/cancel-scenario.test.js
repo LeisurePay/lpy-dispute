@@ -1,4 +1,4 @@
-const { ethers } = require("hardhat");
+const { ethers, network } = require("hardhat");
 const { expect } = require("chai");
 
 describe("Cancel Scenario Flow", () => {
@@ -17,7 +17,6 @@ describe("Cancel Scenario Flow", () => {
     arbiter4,
   ] = Array(8).fill(null);
   const votes = [{}];
-  const votes2 = [{}];
   const CHOICES = ["A", "B"];
 
   const wei = ethers.utils.parseEther;
@@ -45,17 +44,31 @@ describe("Cancel Scenario Flow", () => {
     const IARB = await ethers.getContractFactory("IterableArbiters");
 
     erc721 = await ERC721.deploy("https://based.com/");
-    await erc721.safeMint(deployer.address, "");
-    await erc721.safeMint(deployer.address, "");
+    const firstMint = await erc721.safeMint(deployer.address, "");
+    if (!network.name.match(/.*(ganache|localhost|hardhat).*/i))
+      await firstMint.wait(2);
+    const secondMint = await erc721.safeMint(deployer.address, "");
+    if (!network.name.match(/.*(ganache|localhost|hardhat).*/i))
+      await secondMint.wait(2);
     mock = await ERC20.deploy();
 
     const args = [mock.address, server.address];
+    console.log(args);
+    const library = await IARB.deploy();
     const DISPUTE = await ethers.getContractFactory("DisputeContract", {
       libraries: {
-        IterableArbiters: (await IARB.deploy()).address,
+        IterableArbiters: library.address,
       },
     });
     dispute = await DISPUTE.deploy(...args);
+
+    console.log('====================================');
+    console.log('=====CANCEL TEST CONTRACTS======');
+    console.log(`ERC20: ${mock.address}`);
+    console.log(`ERC721: ${erc721.address}`);
+    console.log(`Library: ${library.address}`);
+    console.log(`Dispute: ${dispute.address}`);
+    console.log('====================================');
 
     first = false;
   });
@@ -64,15 +77,15 @@ describe("Cancel Scenario Flow", () => {
     let disputes = await dispute.getAllDisputes();
     expect(disputes.length).to.eq(0);
 
-    await (
-      await dispute
-        .connect(server)
-        .createDisputeByServer(customer.address, merchant.address, false, erc721.address, 1, 20e6, [
-          arbiter1.address,
-          arbiter2.address,
-          arbiter3.address,
-        ])
-    ).wait(1);
+    const tx = await dispute
+      .connect(server)
+      .createDisputeByServer(customer.address, merchant.address, false, erc721.address, 1, 20e6, [
+        arbiter1.address,
+        arbiter2.address,
+        arbiter3.address,
+      ])
+    if (!network.name.match(/.*(ganache|localhost|hardhat).*/i))
+      await tx.wait(2);
 
     disputes = await dispute.getAllDisputes();
 
@@ -90,8 +103,9 @@ describe("Cancel Scenario Flow", () => {
 
   it("Server cancels Dispute [SUCCESS]", async () => {
     const disputeIndex = 0;
-
-    await dispute.connect(server).cancelDispute(disputeIndex);
+    const tx = await dispute.connect(server).cancelDispute(disputeIndex);
+    if (!network.name.match(/.*(ganache|localhost|hardhat).*/i))
+      await tx.wait(2);
     const details = await dispute.getDisputeByIndex(disputeIndex);
 
     expect(details.state).to.eq(2);
@@ -116,36 +130,16 @@ describe("Cancel Scenario Flow", () => {
         signature,
       };
     }
-
-    for (let i = 0; i < signers.length; i++) {
-      const arbiterSigner = signers[i];
-
-      const choice = makeChoice(1);
-      const address = arbiterSigner.address;
-
-      const messageHash = ethers.utils.id(choice);
-      const messageHashBytes = ethers.utils.arrayify(messageHash);
-      const signature = await arbiterSigner.signMessage(messageHashBytes);
-
-      votes2[i] = {
-        choice,
-        address,
-        signature,
-      };
-    }
   });
 
   it("Server submits signed votes but dispute is cancelled [FAIL] ", async () => {
     const _msgs = [];
     const _sigs = [];
 
-    for (let i = 0; i < votes.length; i++) {
-      _msgs.push(votes[i].choice);
-      _sigs.push(votes[i].signature);
+    for (const element of votes) {
+      _msgs.push(element.choice);
+      _sigs.push(element.signature);
     }
-
-    _msgs.push(votes[0].choice);
-    _sigs.push(votes[0].signature);
 
     let _dispute = await dispute.getDisputeByIndex(0);
     expect(_dispute.voteCount).to.equal(0);
