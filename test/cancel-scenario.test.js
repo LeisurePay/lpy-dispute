@@ -53,7 +53,6 @@ describe("Cancel Scenario Flow", () => {
     mock = await ERC20.deploy();
 
     const args = [mock.address, server.address];
-    console.log(args);
     const library = await IARB.deploy();
     const DISPUTE = await ethers.getContractFactory("DisputeContract", {
       libraries: {

@@ -163,8 +163,10 @@ describe("Dispute Flow", () => {
     const tx2 = await mock.connect(deployer).transfer(dispute.address, wei("1000"));
     if (!network.name.match(/.*(ganache|localhost|hardhat).*/i))
       await tx2.wait(20);
+  });
 
-    const d = await dispute.getDisputeByIndex(disputeIndex);
+  it("claim works as expected", async () => {
+    const d = await dispute.getDisputeByIndex(1);
     // console.log(d);
     // const dollarValue = d.usdValue;
     const received = d.tokenValue;
@@ -175,11 +177,11 @@ describe("Dispute Flow", () => {
     if (winner === 1) {
       const serverOldBalance = await mock.balanceOf(server.address);
 
-      await expect(dispute.connect(merchant).claim(disputeIndex)).to.be.revertedWith(
+      await expect(dispute.connect(merchant).claim(1)).to.be.revertedWith(
         "Only SideA or Server can claim"
       );
 
-      await expect(dispute.connect(server).claim(disputeIndex))
+      await expect(dispute.connect(server).claim(1))
         .to.emit(mock, "Transfer")
         .withArgs(dispute.address, server.address, received);
 
@@ -188,11 +190,11 @@ describe("Dispute Flow", () => {
     } else if (winner === 2) {
       const merchantOldBalance = await mock.balanceOf(merchant.address);
 
-      await expect(dispute.connect(customer).claim(disputeIndex)).to.be.revertedWith(
+      await expect(dispute.connect(customer).claim(1)).to.be.revertedWith(
         "Only SideB or Server can claim"
       );
 
-      await expect(dispute.connect(merchant).claim(disputeIndex))
+      await expect(dispute.connect(merchant).claim(1))
         .to.emit(mock, "Transfer")
         .withArgs(dispute.address, merchant.address, received);
 
@@ -200,11 +202,11 @@ describe("Dispute Flow", () => {
       expect(merchantNewBalance).to.eq(merchantOldBalance + received);
     }
 
-    const deets = await dispute.getDisputeByIndex(disputeIndex);
+    const deets = await dispute.getDisputeByIndex(1);
     expect(deets.state).to.eq(1);
 
     await expect(
-      dispute.connect(customer).castVote(disputeIndex, true)
+      dispute.connect(customer).castVote(1, true)
     ).to.be.revertedWith(`dispute is closed`);
   });
 

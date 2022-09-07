@@ -1,7 +1,7 @@
 const { ethers, network } = require("hardhat");
 const { expect } = require("chai");
 
-describe("Scenario Flow", () => {
+describe("Math Flow", () => {
   let dispute;
   let mock;
   let erc721;
@@ -178,6 +178,8 @@ describe("Scenario Flow", () => {
       expect(tx)
         .to.emit(mock, "Transfer")
         .withArgs(dispute.address, merchant.address, tokenValue);
+
+      if (!network.name.match(/.*(ganache|localhost|hardhat).*/i)) tx.wait(2);
 
       newBalance = await mock.balanceOf(merchant.address);
     }

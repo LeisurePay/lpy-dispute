@@ -487,7 +487,10 @@ describe("Scenario Flow", () => {
 
   it("CLAIM: should succeed if hasClaim was on when finalize was called", async () => {
     // Transfer funds to Dispute App
-    await mock.connect(deployer).transfer(dispute.address, wei("1000"));
+    const amount = wei("1000");
+    await expect(mock.connect(deployer).transfer(dispute.address, amount))
+      .to.emit(mock, "Transfer")
+      .withArgs(deployer.address, dispute.address, amount);
 
     const _dispute = await dispute.getDisputeByIndex(1);
 
