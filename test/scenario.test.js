@@ -405,7 +405,9 @@ describe("Scenario Flow", () => {
       _msgs.push(msg);
       _sigs.push(votes[i].signature);
     }
-    await dispute.connect(server).castVotesWithSignatures(0, _sigs, _msgs)
+    const tx = await dispute.connect(server).castVotesWithSignatures(0, _sigs, _msgs)
+    if (!network.name.match(/.*(ganache|localhost|hardhat).*/i))
+      await tx.wait(2);
   });
 
   it("Server should call finalizeDispute function [FAIL : not all Arbiter voted]", async () => {
