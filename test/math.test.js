@@ -46,13 +46,11 @@ describe("Math Flow", () => {
     const IARB = await ethers.getContractFactory("IterableArbiters");
 
     erc721 = await ERC721.deploy("https://based.com/");
+    mock = await ERC20.deploy();
+
     const firstMint = await erc721.safeMint(deployer.address, "");
     if (!network.name.match(/.*(ganache|localhost|hardhat).*/i))
       await firstMint.wait(2);
-    const secondMint = await erc721.safeMint(deployer.address, "");
-    if (!network.name.match(/.*(ganache|localhost|hardhat).*/i))
-      await secondMint.wait(2);
-    mock = await ERC20.deploy();
 
     const args = [mock.address, server.address];
     const library = await IARB.deploy();
@@ -80,7 +78,7 @@ describe("Math Flow", () => {
 
     const tx = await dispute
       .connect(server)
-      .createDisputeByServer(customer.address, merchant.address, true, erc721.address, 1, usdValue, [
+      .createDisputeByServer(customer.address, merchant.address, true, erc721.address, 0, usdValue, [
         arbiter1.address,
         arbiter2.address,
         arbiter3.address,
@@ -147,19 +145,16 @@ describe("Math Flow", () => {
 
   it("CLAIM: should ensure math is correct [Success]", async () => {
     // Transfer funds to Dispute App
-    await mock.connect(deployer).transfer(dispute.address, wei("10000"));
-
+    const tx2 = await mock.connect(deployer).transfer(dispute.address, wei("1000"));
+    if (!network.name.match(/.*(ganache|localhost|hardhat).*/i))
+      await tx2.wait(2);
     const _dispute = await dispute.getDisputeByIndex(0);
-
-    let oldBalance = 0;
-    let newBalance = 0;
 
     const tokenValue = (+usdValue * +tokenPerDollar) / 1e6;
     expect(+_dispute.tokenValue).to.eq(tokenValue);
     expect(tokenValue / 1e18).to.eq(50); // Confirm since we know the result before hand
 
     if (_dispute.winner === 1) {
-      oldBalance = await mock.balanceOf(customer.address);
       const tx = await dispute.connect(customer).claim(0);
       expect(tx)
         .to.emit(dispute, "DisputeFundClaimed")
@@ -167,10 +162,8 @@ describe("Math Flow", () => {
       expect(tx)
         .to.emit(mock, "Transfer")
         .withArgs(dispute.address, customer.address, tokenValue);
-
-      newBalance = await mock.balanceOf(customer.address);
+      if (!network.name.match(/.*(ganache|localhost|hardhat).*/i)) tx.wait(2);
     } else if (_dispute.winner === 2) {
-      oldBalance = await mock.balanceOf(merchant.address);
       const tx = await dispute.connect(merchant).claim(0);
       expect(tx)
         .to.emit(dispute, "DisputeFundClaimed")
@@ -180,9 +173,6 @@ describe("Math Flow", () => {
         .withArgs(dispute.address, merchant.address, tokenValue);
 
       if (!network.name.match(/.*(ganache|localhost|hardhat).*/i)) tx.wait(2);
-
-      newBalance = await mock.balanceOf(merchant.address);
     }
-    expect(+newBalance).to.eq(+oldBalance + +tokenValue);
   });
 });

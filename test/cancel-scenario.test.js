@@ -47,11 +47,8 @@ describe("Cancel Scenario Flow", () => {
     const firstMint = await erc721.safeMint(deployer.address, "");
     if (!network.name.match(/.*(ganache|localhost|hardhat).*/i))
       await firstMint.wait(2);
-    const secondMint = await erc721.safeMint(deployer.address, "");
-    if (!network.name.match(/.*(ganache|localhost|hardhat).*/i))
-      await secondMint.wait(2);
-    mock = await ERC20.deploy();
 
+    mock = await ERC20.deploy();
     const args = [mock.address, server.address];
     const library = await IARB.deploy();
     const DISPUTE = await ethers.getContractFactory("DisputeContract", {
@@ -78,7 +75,7 @@ describe("Cancel Scenario Flow", () => {
 
     const tx = await dispute
       .connect(server)
-      .createDisputeByServer(customer.address, merchant.address, false, erc721.address, 1, 20e6, [
+      .createDisputeByServer(customer.address, merchant.address, false, erc721.address, 0, 20e6, [
         arbiter1.address,
         arbiter2.address,
         arbiter3.address,

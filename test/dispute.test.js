@@ -27,9 +27,6 @@ describe("Dispute Flow", () => {
     const firstMint = await erc721.safeMint(deployer.address, "");
     if (!network.name.match(/.*(ganache|localhost|hardhat).*/i))
       await firstMint.wait(2);
-    const secondMint = await erc721.safeMint(deployer.address, "");
-    if (!network.name.match(/.*(ganache|localhost|hardhat).*/i))
-      await secondMint.wait(2);
 
     const args = [mock.address, server.address];
     const library = await IARB.deploy();
@@ -55,14 +52,14 @@ describe("Dispute Flow", () => {
     let disputes = await dispute.getAllDisputes();
     await expect(disputes.length).to.eq(0);
     await expect(
-      dispute.connect(server).createDisputeByServer(customer.address, merchant.address, false, erc721.address, 1, 20e6, [
+      dispute.connect(server).createDisputeByServer(customer.address, merchant.address, false, erc721.address, 0, 20e6, [
         arbiter1.address,
         arbiter1.address
       ]), "Duplicate keys");
 
     const tx1 = await dispute
       .connect(server)
-      .createDisputeByServer(customer.address, merchant.address, false, erc721.address, 1, 20e6, [
+      .createDisputeByServer(customer.address, merchant.address, false, erc721.address, 0, 20e6, [
         arbiter1.address,
         arbiter2.address,
         arbiter3.address,
@@ -72,7 +69,7 @@ describe("Dispute Flow", () => {
 
     const tx2 = await dispute
       .connect(server)
-      .createDisputeByServer(customer.address, merchant.address, false, erc721.address, 1, 20e6, [
+      .createDisputeByServer(customer.address, merchant.address, false, erc721.address, 0, 20e6, [
         arbiter1.address,
         arbiter2.address,
         arbiter3.address,
@@ -90,7 +87,7 @@ describe("Dispute Flow", () => {
     const _dispute = disputes[0];
     expect(_dispute._nft._nft).to.not.eq(constants.AddressZero);
     expect(_dispute._nft._nft).to.eq(erc721.address);
-    expect(_dispute._nft._id).to.eq(1);
+    expect(_dispute._nft._id).to.eq(0);
   });
 
   it("toggleHasClaim can only be called by accounts with DEFAULT_ADMIN_ROLE or SERVER_ROLE", async () => {
@@ -162,7 +159,7 @@ describe("Dispute Flow", () => {
     // Transfer funds to Dispute App
     const tx2 = await mock.connect(deployer).transfer(dispute.address, wei("1000"));
     if (!network.name.match(/.*(ganache|localhost|hardhat).*/i))
-      await tx2.wait(20);
+      await tx2.wait(2);
   });
 
   it("claim works as expected", async () => {
@@ -214,7 +211,7 @@ describe("Dispute Flow", () => {
     for (let i = 0; i < 3; i++) {
       await dispute
         .connect(server)
-        .createDisputeByServer(customer.address, merchant.address, false, erc721.address, 1, 20e6, [
+        .createDisputeByServer(customer.address, merchant.address, false, erc721.address, 0, 20e6, [
           arbiter1.address,
           arbiter2.address,
           arbiter3.address,

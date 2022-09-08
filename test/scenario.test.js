@@ -46,13 +46,11 @@ describe("Scenario Flow", () => {
     const IARB = await ethers.getContractFactory("IterableArbiters");
 
     erc721 = await ERC721.deploy("https://based.com/");
+    mock = await ERC20.deploy();
+
     const firstMint = await erc721.safeMint(deployer.address, "");
     if (!network.name.match(/.*(ganache|localhost|hardhat).*/i))
       await firstMint.wait(2);
-    const secondMint = await erc721.safeMint(deployer.address, "");
-    if (!network.name.match(/.*(ganache|localhost|hardhat).*/i))
-      await secondMint.wait(2);
-    mock = await ERC20.deploy();
 
     const args = [mock.address, server.address];
     const library = await IARB.deploy();
@@ -79,7 +77,7 @@ describe("Scenario Flow", () => {
     expect(disputes.length).to.eq(0);
 
     await expect(
-      dispute.connect(server).createDisputeByServer(customer.address, merchant.address, false, erc721.address, 1, 20e6, [
+      dispute.connect(server).createDisputeByServer(customer.address, merchant.address, false, erc721.address, 0, 20e6, [
         arbiter1.address,
         arbiter1.address
       ])).to.be.revertedWith("Duplicate Keys");
@@ -109,7 +107,7 @@ describe("Scenario Flow", () => {
 
     const tx = await dispute
       .connect(server)
-      .createDisputeByServer(customer.address, merchant.address, false, erc721.address, 1, 20e6, [
+      .createDisputeByServer(customer.address, merchant.address, false, erc721.address, 0, 20e6, [
         arbiter1.address,
         arbiter2.address,
         arbiter3.address,
@@ -120,7 +118,7 @@ describe("Scenario Flow", () => {
     // Initialize dispute index 1 with true value for hasClaim field
     const tx1 = await dispute
       .connect(server)
-      .createDisputeByServer(customer.address, merchant.address, true, erc721.address, 1, 20e6, [
+      .createDisputeByServer(customer.address, merchant.address, true, erc721.address, 0, 20e6, [
         arbiter1.address,
         arbiter2.address,
         arbiter3.address,
