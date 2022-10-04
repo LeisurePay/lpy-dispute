@@ -106,6 +106,7 @@ contract DisputeContract is AccessControlEnumerable {
     /// @notice Event emitted when a dispute is created
     /// @param disputeIndex Created dispute ID
     /// @param _nft A struct containing the NFT address and its ID
+    /// @param hasClaim Initial value to determine if dispute is claimable
     /// @param usdValue Dispute's USD at stake (1000000 == 1 USD; 6 decimals)
     /// @param sideA Creator of the dispute
     /// @param sideB Attached user to the dispute
@@ -113,6 +114,7 @@ contract DisputeContract is AccessControlEnumerable {
     event DisputeCreated(
         uint256 indexed disputeIndex,
         NFT _nft,
+        bool hasClaim,
         uint256 usdValue,
         address indexed sideA,
         address indexed sideB,
@@ -312,6 +314,7 @@ contract DisputeContract is AccessControlEnumerable {
         emit DisputeCreated(
             disputeIndex,
             dispute._nft,
+            dispute.hasClaim,
             usdValue,
             _sideA,
             _sideB,

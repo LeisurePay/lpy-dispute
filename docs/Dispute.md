@@ -141,7 +141,7 @@ Default initializer for the dispute contract
 ### DisputeCreated
 
 ```solidity
-event DisputeCreated(uint256 disputeIndex, struct DisputeContract.NFT _nft, uint256 usdValue, address sideA, address sideB, address[] arbiters)
+event DisputeCreated(uint256 disputeIndex, struct DisputeContract.NFT _nft, bool hasClaim, uint256 usdValue, address sideA, address sideB, address[] arbiters)
 ```
 
 Event emitted when a dispute is created
@@ -150,6 +150,7 @@ Event emitted when a dispute is created
 | ---- | ---- | ----------- |
 | disputeIndex | uint256 | Created dispute ID |
 | _nft | struct DisputeContract.NFT | A struct containing the NFT address and its ID |
+| hasClaim | bool | Initial value to determine if dispute is claimable |
 | usdValue | uint256 | Dispute's USD at stake (1000000 == 1 USD; 6 decimals) |
 | sideA | address | Creator of the dispute |
 | sideB | address | Attached user to the dispute |
