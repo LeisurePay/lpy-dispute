@@ -398,13 +398,14 @@ contract DisputeContract is AccessControlEnumerable, ReentrancyGuard {
             }
             require(!dispute.arbiters.get(signer).voted, "Already Voted");
 
+            // cast vote and emit an event
             IterableArbiters.UserVote memory vote = _castVote(disputeIndex, signer, agree);
 
             dispute.voteCount += 1;
             dispute.support += agree ? 1 : 0;
             dispute.against += agree ? 0 : 1;
 
-            dispute.arbiters.set(signer, vote);
+            dispute.arbiters.set(signer, vote); // Save vote casted
             if(!voteCasted)
                 voteCasted = true;
         }
