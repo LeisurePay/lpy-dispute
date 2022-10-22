@@ -5,13 +5,14 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/access/AccessControlEnumerable.sol";
 import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "./IERC721.sol";
 import "./IterableArbiters.sol";
 
 /// @title LPY Dispute Contract
 /// @author Leisure Pay
 /// @notice Dispute Contract for the Leisure Pay Ecosystem
-contract DisputeContract is AccessControlEnumerable {
+contract DisputeContract is AccessControlEnumerable, ReentrancyGuard {
     using IterableArbiters for IterableArbiters.Map;
     using ECDSA for bytes32;
     using Strings for uint256;
@@ -84,8 +85,8 @@ contract DisputeContract is AccessControlEnumerable {
     IERC20 private lpy;
 
     // ROLES
-    /// @notice SERVER_ROLE bytes
-    bytes32 public constant SERVER_ROLE = bytes32("SERVER_ROLE");
+    /// @notice SERVER_ROLE LPY Dispute Automation Server
+    bytes32 public constant SERVER_ROLE = keccak256("SERVER_ROLE");
 
     // CONSTRUCTOR
 
@@ -96,8 +97,9 @@ contract DisputeContract is AccessControlEnumerable {
         IERC20 _lpy,
         address _server
     ) {
+        require(address(_lpy) != address(0) && _server != address(0), "Addresses must be set");
+        
         lpy = _lpy;
-
         _grantRole(SERVER_ROLE, _server);
         _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
     }
@@ -267,7 +269,7 @@ contract DisputeContract is AccessControlEnumerable {
         emit ToggledHasClaim(dispute.disputeIndex, dispute.hasClaim);
     }
 
-    /// @notice Adds a new dispute to memory
+    /// @notice Adds a new dispute
     /// @dev Function can only be called by a user with the `SERVER_ROLE` roles, <br/>all fields can be changed post function call except the `_nftAddr` and `txID`
     /// @param _sideA Is the creator of the dispute
     /// @param _sideB Is the user the dispute is against
@@ -287,12 +289,19 @@ contract DisputeContract is AccessControlEnumerable {
         address[] memory _arbiters
     ) external onlyRole(SERVER_ROLE) returns (bool) {
         require(_sideA != _sideB, "sideA == sideB");
+        require(_sideA != address(0), "sideA has to be set");
+        require(_nftAddr != address(0), "NFTAddr has to be set");
+        require(usdValue > 0, "usdValue has to be > 0");
+
+        if(_sideB == address(0)){
+            _sideB = address(this);
+        }
 
         uint256 disputeIndex = numOfdisputes++;
 
         Dispute storage dispute = disputes[disputeIndex];
 
-        // Confirm tokenID is already minted
+        // Non altering call to confirm tokenID is already minted
         IERC721Extended(_nftAddr).tokenURI(txID);
 
         dispute.disputeIndex = disputeIndex;
@@ -302,6 +311,7 @@ contract DisputeContract is AccessControlEnumerable {
         dispute.hasClaim = _hasClaim;
 
         for (uint256 i = 0; i < _arbiters.length; i++) {
+            require(_arbiters[i] != address(0), "Arbiter is not valid");
             require(!dispute.arbiters.contains(_arbiters[i]), "Duplicate Keys");
             dispute.arbiters.set(_arbiters[i], IterableArbiters.UserVote(_arbiters[i], false, false));
         }
@@ -327,7 +337,7 @@ contract DisputeContract is AccessControlEnumerable {
     /// @notice Function to let a user directly vote on a dispute
     /// @dev  Can only be called if; <br/> 1. dispute state is `OPEN` <br/> 2. the user is an arbiter of that very dispute<br/>3. the user has not already voted on that dispute<br/>This function calls @_castVote
     /// @param disputeIndex ID of the dispute to vote on
-    /// @param _agree The vote's direction where `true==YES and false==NO`
+    /// @param _agree The vote's direction where `true==support for sideA and false==support for sideB`
     /// @return if vote was successful or not
     function castVote(uint256 disputeIndex, bool _agree) external returns (bool) {
         Dispute storage dispute = disputes[disputeIndex];
@@ -336,13 +346,14 @@ contract DisputeContract is AccessControlEnumerable {
         require(dispute.arbiters.contains(msg.sender), "Not an arbiter");
         require(!dispute.arbiters.get(msg.sender).voted, "Already Voted");
 
+        // cast vote and emit an event
         IterableArbiters.UserVote memory vote = _castVote(disputeIndex, msg.sender, _agree);
 
         dispute.voteCount += 1;
         dispute.support += _agree ? 1 : 0;
         dispute.against += _agree ? 0 : 1;
 
-        dispute.arbiters.set(msg.sender, vote);
+        dispute.arbiters.set(msg.sender, vote); // Save vote casted
 
         return true;
     }
@@ -412,6 +423,7 @@ contract DisputeContract is AccessControlEnumerable {
         bool sideAWins,
         uint256 ratio // tokens per dollar
     ) external onlyRole(SERVER_ROLE) returns (bool) {
+        require(ratio > 0, "Ratio has to be > 0");
         
         Dispute storage dispute = disputes[disputeIndex];
         require(dispute.state == State.Open, "dispute is closed");
@@ -489,6 +501,7 @@ contract DisputeContract is AccessControlEnumerable {
         external
         onlyRole(SERVER_ROLE)
     {
+        // Server would be able to update incase owner loses key
         Dispute storage _dispute = disputes[disputeIndex];
         emit SideAUpdated(disputeIndex, _dispute.sideA, _sideA);
         _dispute.sideA = _sideA;
@@ -502,6 +515,7 @@ contract DisputeContract is AccessControlEnumerable {
         external
         onlyRole(SERVER_ROLE)
     {
+        // Server would be able to update incase owner loses key
         Dispute storage _dispute = disputes[disputeIndex];
         emit SideBUpdated(disputeIndex, _dispute.sideB, _sideB);
         _dispute.sideB = _sideB;
@@ -510,7 +524,7 @@ contract DisputeContract is AccessControlEnumerable {
     /// @notice Function for user to claim the tokens
     /// @dev Function can only be called by just a user with the `SERVER_ROLE` and the winner of the dispute, emits a `DisputeFundClaimed` event
     /// @param disputeIndex ID of the dispute
-    function claim(uint256 disputeIndex) external returns (bool) {
+    function claim(uint256 disputeIndex) external nonReentrant returns (bool) {
         Dispute storage _dispute = disputes[disputeIndex];
         require(_dispute.state == State.Closed, "dispute is not closed");
         require(_dispute.claimed != true, "Already Claimed");
@@ -531,14 +545,11 @@ contract DisputeContract is AccessControlEnumerable {
 
         _dispute.claimed = true;
 
-        // @TODO USE TRANSFER FROM HERE
-        require(
-            lpy.transfer(msg.sender, _dispute.tokenValue),
-            "CLAIM:: transfer failed"
-        );
-
         emit DisputeFundClaimed(_dispute.disputeIndex, _dispute.tokenValue, msg.sender);
+        uint cBal = lpy.balanceOf(address(this));
+        require(cBal >= _dispute.tokenValue, "transfer failed: insufficient balance");
 
+        lpy.transfer(msg.sender, _dispute.tokenValue);
         return true;
     }
 

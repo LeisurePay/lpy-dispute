@@ -41,6 +41,7 @@ library IterableArbiters {
         if(!map.inserted[key]) {
             return -1;
         }
+        require(map.indexOf[key] < 2**255, "index too large");
         return int(map.indexOf[key]);
     }
 

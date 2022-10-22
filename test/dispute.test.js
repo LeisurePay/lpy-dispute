@@ -153,7 +153,7 @@ describe("Dispute Flow", () => {
       await tx1.wait(2);
     
     await expect(dispute.connect(server).claim(disputeIndex)).to.be.revertedWith(
-      "ERC20: transfer amount exceeds balance"
+      "transfer failed: insufficient balance"
     );
 
     // Transfer funds to Dispute App

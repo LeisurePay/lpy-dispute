@@ -123,7 +123,7 @@ Address that points to the LPY contract - used for settling disputes
 bytes32 SERVER_ROLE
 ```
 
-SERVER_ROLE bytes
+SERVER_ROLE LPY Dispute Automation Server
 
 ### constructor
 
@@ -342,7 +342,7 @@ _Function can only be called by a user with the `DEFAULT_ADMIN_ROLE` or `SERVER_
 function createDisputeByServer(address _sideA, address _sideB, bool _hasClaim, address _nftAddr, uint256 txID, uint256 usdValue, address[] _arbiters) external returns (bool)
 ```
 
-Adds a new dispute to memory
+Adds a new dispute
 
 _Function can only be called by a user with the `SERVER_ROLE` roles, <br/>all fields can be changed post function call except the `_nftAddr` and `txID`_
 
@@ -373,7 +373,7 @@ _Can only be called if; <br/> 1. dispute state is `OPEN` <br/> 2. the user is an
 | Name | Type | Description |
 | ---- | ---- | ----------- |
 | disputeIndex | uint256 | ID of the dispute to vote on |
-| _agree | bool | The vote's direction where `true==YES and false==NO` |
+| _agree | bool | The vote's direction where `true==support for sideA and false==support for sideB` |
 
 | Name | Type | Description |
 | ---- | ---- | ----------- |
